@@ -1,4 +1,6 @@
 #pragma once
+#include <stddef.h>
+#include <stdint.h>
 
 #if defined(_MSC_VER)
 #include <intrin.h>
