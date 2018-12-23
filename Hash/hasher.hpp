@@ -20,7 +20,7 @@ namespace accel::Hash {
 
         void Update(const void* pData, size_t DataSize) noexcept {
             if (DataSize + _StreamLength < BlockSize) {
-                memcpy(_StreamBuffer.AsArray().GetPtr() + _StreamLength, pData, DataSize);
+                memcpy(_StreamBuffer.GetPtr() + _StreamLength, pData, DataSize);
                 _StreamLength += DataSize;
                 _ProcessedBytes += DataSize;
             } else {
@@ -29,8 +29,8 @@ namespace accel::Hash {
 
                 {
                     size_t BytesToCopy = BlockSize - _StreamLength;
-                    memcpy(_StreamBuffer.AsArray().GetPtr() + _StreamLength, pBytes, BytesToCopy);
-                    _AlgInstance.Cycle(_StreamBuffer.AsArray().GetPtr(), 1);
+                    memcpy(_StreamBuffer.GetPtr() + _StreamLength, pBytes, BytesToCopy);
+                    _AlgInstance.Cycle(_StreamBuffer.GetPtr(), 1);
                     _StreamLength = 0;
                     DataReadPtr += BytesToCopy;
                     DataSize -= BytesToCopy;
@@ -47,7 +47,7 @@ namespace accel::Hash {
 
                 {
                     if (DataSize) {
-                        memcpy(_StreamBuffer.AsArray().GetPtr(), pBytes + DataReadPtr, DataSize);
+                        memcpy(_StreamBuffer.GetPtr(), pBytes + DataReadPtr, DataSize);
                         _StreamLength += DataSize;
                         DataReadPtr += DataSize;
                         DataSize = 0;
@@ -60,7 +60,7 @@ namespace accel::Hash {
 
         ByteArray<DigestSize> Digest() const {
             __AlgType ForkedAlgInstance = _AlgInstance;
-            ForkedAlgInstance.Finish(_StreamBuffer.AsArray().GetPtr(), _StreamLength, _ProcessedBytes);
+            ForkedAlgInstance.Finish(_StreamBuffer.GetPtr(), _StreamLength, _ProcessedBytes);
             return ForkedAlgInstance.Digest();
         }
     };

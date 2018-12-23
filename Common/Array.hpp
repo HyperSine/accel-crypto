@@ -157,14 +157,35 @@ namespace accel {
         }
 
         //
-        //  Begin AsArray
+        //  Begin GetPtr()
         //
-        Array<__Type, __Length>& AsArray() {
-            return _ArrayInstance;
+        ElementType* GetPtr() noexcept {
+            return _ArrayInstance.GetPtr();
         }
 
-        const Array<__Type, __Length>& AsArray() const {
-            return _ArrayInstance;
+        const ElementType* GetPtr() const noexcept {
+            return _ArrayInstance.GetPtr();
+        }
+
+        //
+        //  Begin ToArrayOf
+        //
+        template<typename __NewType, size_t __NewLength>
+        Array<__NewType, __NewLength> ToArrayOf() const {
+            return _ArrayInstance.template ToArrayOf<__NewType, __Length>();
+        }
+
+        //
+        //  Begin AsArrayOf
+        //
+        template<typename __NewType, size_t __NewLength>
+        Array<__NewType, __NewLength>& AsArrayOf() {
+            return _ArrayInstance.template AsArrayOf<__NewType, __NewLength>();
+        }
+
+        template<typename __NewType, size_t __NewLength>
+        const Array<__NewType, __NewLength>& AsArrayOf() const {
+            return _ArrayInstance.template AsArrayOf<__NewType, __NewLength>();
         }
 
         //

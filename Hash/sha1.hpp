@@ -112,7 +112,7 @@ namespace accel::Hash {
         }
 
         ByteArray<DigestSize> Digest() const noexcept {
-            return _State.AsArray().AsArrayOf<uint8_t, DigestSize>();
+            return _State.AsArrayOf<uint8_t, DigestSize>();
         }
     };
 
