@@ -91,7 +91,7 @@ namespace accel::Hash {
         //  Once Finish(...) is called, this object should be treated as const
         //
         void Finish(const void* pTailData, size_t TailDataSize, uint64_t ProcessedBytes) noexcept {
-            assert(TailDataSize <= BlockSize - sizeof(uint64_t) - 1);
+            assert(TailDataSize <= 2 * BlockSize - sizeof(uint64_t) - 1);
 
             uint8_t Tail[2 * BlockSize] = {};
             size_t Rounds;
