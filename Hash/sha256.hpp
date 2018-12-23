@@ -110,6 +110,12 @@ namespace accel::Hash {
 
             Cycle(FormattedTailData, Rounds);
 
+            {   // clear FormattedTailData
+                volatile uint8_t* p = FormattedTailData;
+                size_t s = sizeof(FormattedTailData);
+                while (s--) *p++ = 0;
+            }
+
             _State[0] = Intrinsic::ByteSwap(_State[0]);
             _State[1] = Intrinsic::ByteSwap(_State[1]);
             _State[2] = Intrinsic::ByteSwap(_State[2]);
