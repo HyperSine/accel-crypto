@@ -22,7 +22,7 @@ namespace accel::Hash {
                     0xC3D2E1F0u } {}
 
         void Cycle(const void* pData, size_t Rounds) noexcept {
-            uint32_t Buffer[80] = { 0 };
+            uint32_t Buffer[80] = {};
             uint32_t a, b, c, d, e;
             auto MessageBlock = reinterpret_cast<const uint32_t(*)[BlockSize / sizeof(uint32_t)]>(pData);
 
