@@ -4,7 +4,6 @@
 #include "../Common/Intrinsic.hpp"
 #include <memory.h>
 #include <assert.h>
-#include "hasher.hpp"
 
 namespace accel::Hash {
 
