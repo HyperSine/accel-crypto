@@ -93,16 +93,16 @@ namespace accel::Hash {
         void Finish(const void* pTailData, size_t TailDataSize, uint64_t ProcessedBytes) noexcept {
             assert(TailDataSize <= 2 * BlockSize - sizeof(uint64_t) - 1);
 
-            uint8_t Tail[2 * BlockSize] = {};
+            uint8_t FormattedTailData[2 * BlockSize] = {};
             size_t Rounds;
 
-            memcpy(Tail, pTailData, TailDataSize);
-            Tail[TailDataSize] = 0x80;
+            memcpy(FormattedTailData, pTailData, TailDataSize);
+            FormattedTailData[TailDataSize] = 0x80;
             Rounds = TailDataSize >= BlockSize - sizeof(uint64_t) ? 2 : 1;
-            *reinterpret_cast<uint64_t*>(Tail + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) : (BlockSize - sizeof(uint64_t)))) =
+            *reinterpret_cast<uint64_t*>(FormattedTailData + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) : (BlockSize - sizeof(uint64_t)))) =
                     Intrinsic::ByteSwap<uint64_t>(ProcessedBytes * 8);
 
-            Cycle(Tail, Rounds);
+            Cycle(FormattedTailData, Rounds);
 
             _State[0] = Intrinsic::ByteSwap(_State[0]);
             _State[1] = Intrinsic::ByteSwap(_State[1]);
