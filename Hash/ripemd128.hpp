@@ -101,10 +101,10 @@ namespace accel::Hash {
 
         template<size_t... __Indexes>
         __forceinline
-        static void _64_Loops(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D,
-                              uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD,
-                              uint32_t& T,
-                              const uint32_t(&X)[16], std::index_sequence<__Indexes...>) noexcept {
+        static void _Loops(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D,
+                           uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD,
+                           uint32_t& T,
+                           const uint32_t(&X)[16], std::index_sequence<__Indexes...>) noexcept {
             (_Loop<__Indexes>(A, B, C, D, AA, BB, CC, DD, T, X), ...);
         }
 
@@ -130,7 +130,7 @@ namespace accel::Hash {
                 C = CC = _State[2];
                 D = DD = _State[3];
 
-                _64_Loops(A, B, C, D, AA, BB, CC, DD, T, MessageBlocks[i], std::make_index_sequence<64>{});
+                _Loops(A, B, C, D, AA, BB, CC, DD, T, MessageBlocks[i], std::make_index_sequence<64>{});
 
                 T = _State[1] + C + DD;
                 _State[1] = _State[2] + D + AA;
