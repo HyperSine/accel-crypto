@@ -11,6 +11,7 @@ namespace accel::Hash {
         SecureArray<uint32_t, 4> _State;
 
         template<size_t __Index>
+        __forceinline
         static constexpr uint32_t _f(uint32_t x, uint32_t y, uint32_t z) noexcept {
             static_assert(__Index < 64, "RIPEMD128_ALG::_f(x, y, z) failure!");
             if constexpr (0 <= __Index && __Index < 16) {
@@ -99,6 +100,7 @@ namespace accel::Hash {
         }
 
         template<size_t... __Indexes>
+        __forceinline
         static void _64_Loops(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D,
                               uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD,
                               uint32_t& T,
