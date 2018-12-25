@@ -9,8 +9,10 @@ namespace accel::Hash {
     private:
         SecureArray<uint32_t, 8> _State;
 
+        // rename _T to _T_Contant, 
+        // to avoid conflict with _T macro in windows
         template<size_t __j>
-        static constexpr uint32_t _T() {
+        static constexpr uint32_t _T_Constant() {
             if constexpr (0 <= __j && __j < 16) {
                 return 0x79cc4519u;
             }
@@ -83,7 +85,7 @@ namespace accel::Hash {
                 Intrinsic::RotateShiftLeft(
                     Intrinsic::RotateShiftLeft(A, 12) +
                     E +
-                    Intrinsic::RotateShiftLeft(_T<__Index>(), static_cast<int>(__Index)),
+                    Intrinsic::RotateShiftLeft(_T_Constant<__Index>(), static_cast<int>(__Index)),
                 7);
             SS2 = SS1 ^ Intrinsic::RotateShiftLeft(A, 12);
             TT1 = _FF<__Index>(A, B, C) + D + SS2 + WW[__Index];
