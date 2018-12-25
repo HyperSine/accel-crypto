@@ -65,7 +65,7 @@ namespace accel {
         //
         template<typename __NewType, size_t __NewLength>
         Array<__NewType, __NewLength> ToArrayOf() const {
-            static_assert(sizeof(Array<__NewType, __NewLength>) == Size, "Require same size.");
+            static_assert(Array<__NewType, __NewLength>::Size <= Size, "ToArrayOf failure! Overflow detected.");
             Array<__NewType, __NewLength> result;
             memcpy(result.GetPtr(), _Elements, Size);
             return result;
