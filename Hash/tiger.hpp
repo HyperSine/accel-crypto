@@ -10,9 +10,10 @@ namespace accel::Hash {
         static const uint64_t _t[4][256];
     };
 
-    template<size_t __bits>
-    class TIGER_ALG : protected TIGER_CONSTANT {
-        static_assert(__bits == 128 || __bits == 160 || __bits == 192, "TIGER_ALG failure! Unsupported bits.");
+    template<int __version, size_t __bits>
+    class _impl_TIGER_ALG : protected TIGER_CONSTANT {
+        static_assert(__version == 1 || __version == 2, "_impl_TIGER_ALG failure! Unsupported version.");
+        static_assert(__bits == 128 || __bits == 160 || __bits == 192, "_impl_TIGER_ALG failure! Unsupported bits.");
     private:
         SecureArray<uint64_t, 3> _State;
 
@@ -69,7 +70,7 @@ namespace accel::Hash {
         static constexpr size_t BlockSize = 64;
         static constexpr size_t DigestSize = __bits / 8;
 
-        TIGER_ALG() noexcept :
+        _impl_TIGER_ALG() noexcept :
             _State{ 0x0123456789ABCDEFull,
                     0xFEDCBA9876543210ull,
                     0xF096A5B4C3B2E187ull } {}
@@ -112,7 +113,8 @@ namespace accel::Hash {
             size_t Rounds;
 
             memcpy(FormattedTailData, pTailData, TailDataSize);
-            FormattedTailData[TailDataSize] = 0x01;
+            if constexpr (__version == 1) FormattedTailData[TailDataSize] = 0x01;
+            if constexpr (__version == 2) FormattedTailData[TailDataSize] = 0x80;
             Rounds = TailDataSize >= BlockSize - sizeof(uint64_t) ? 2 : 1;
             *reinterpret_cast<uint64_t*>(FormattedTailData + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) : (BlockSize - sizeof(uint64_t)))) =
                     ProcessedBytes * 8;
@@ -130,6 +132,12 @@ namespace accel::Hash {
             return _State.AsArrayOf<uint8_t, DigestSize>();
         }
     };
+
+    template<size_t __bits>
+    using TIGER_ALG = _impl_TIGER_ALG<1, __bits>;
+
+    template<size_t __bits>
+    using TIGER2_ALG = _impl_TIGER_ALG<2, __bits>;
 
     inline const uint64_t TIGER_CONSTANT::_t[4][256] = {
         0x02AAB17CF7E90C5ELL   /*    0 */,    0xAC424B03E243A8ECLL   /*    1 */,
