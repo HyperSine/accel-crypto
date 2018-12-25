@@ -126,9 +126,7 @@ namespace accel::Hash {
         }
 
         ByteArray<DigestSize> Digest() const noexcept {
-            ByteArray<DigestSize> result;
-            memcpy(result.GetPtr(), _State.GetPtr(), DigestSize);
-            return result;
+            return _State.AsArrayOf<uint8_t, DigestSize>();
         }
     };
 
