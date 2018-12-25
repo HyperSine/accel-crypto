@@ -6,7 +6,7 @@
 namespace accel::Hash {
 
     template<typename __AlgType>
-    class Hasher {
+    class UnkeyedHasher {
     private:
         __AlgType _AlgInstance;
         uint64_t _ProcessedBytes;
@@ -16,7 +16,7 @@ namespace accel::Hash {
         static constexpr size_t BlockSize = __AlgType::BlockSize;
         static constexpr size_t DigestSize = __AlgType::DigestSize;
 
-        Hasher() noexcept : _ProcessedBytes(0), _StreamLength(0) {}
+        UnkeyedHasher() noexcept : _ProcessedBytes(0), _StreamLength(0) {}
 
         void Update(const void* pData, size_t DataSize) noexcept {
             if (DataSize + _StreamLength < BlockSize) {
