@@ -159,7 +159,7 @@ namespace accel::Intrinsic {
     }
 }
 
-#elif defined(__GNUC__)
+#elif defined(__GNUC__) && !defined(__clang__)  // for GUNC, not Clang
 #include <x86intrin.h>
 
 #ifndef __forceinline
@@ -317,6 +317,76 @@ namespace accel::Intrinsic {
     __forceinline
     uint64_t RotateShiftRight<uint64_t>(uint64_t x, int shift) noexcept {
         return __rorq(x, shift);
+    }
+}
+
+#elif defined(__clang__)
+#include <x86intrin.h>
+
+#ifndef __forceinline
+#define __forceinline __attribute__((always_inline)) inline
+#endif
+
+namespace accel::Intrinsic {
+
+    //
+    //  Begin ByteSwap
+    //
+    template<typename __IntegerType>
+    __IntegerType ByteSwap(__IntegerType x) noexcept;
+
+    template<>
+    __forceinline
+    int16_t ByteSwap(int16_t x) noexcept {
+        return __builtin_bswap16(x);
+    }
+
+    template<>
+    __forceinline
+    uint16_t ByteSwap(uint16_t x) noexcept {
+        return __builtin_bswap16(x);
+    }
+
+    template<>
+    __forceinline
+    int32_t ByteSwap(int32_t x) noexcept {
+        return __builtin_bswap32(x);
+    }
+
+    template<>
+    __forceinline
+    uint32_t ByteSwap(uint32_t x) noexcept {
+        return __builtin_bswap32(x);
+    }
+
+    template<>
+    __forceinline
+    int64_t ByteSwap(int64_t x) noexcept {
+        return __builtin_bswap64(x);
+    }
+
+    template<>
+    __forceinline
+    uint64_t ByteSwap(uint64_t x) noexcept {
+        return __builtin_bswap64(x);
+    }
+
+    //
+    //  Begin RotateShiftLeft
+    //
+    template<typename __IntegerType>
+    __forceinline
+    __IntegerType RotateShiftLeft(__IntegerType x, int shift) noexcept {
+        return (x << shift) | (x >> (sizeof(__IntegerType) * 8 - shift));
+    }
+
+    //
+    //  Begin RotateShiftRight
+    //
+    template<typename __IntegerType>
+    __forceinline
+    __IntegerType RotateShiftRight(__IntegerType x, int shift) noexcept {
+        return (x >> shift) | (x << (sizeof(__IntegerType) * 8 - shift));
     }
 }
 
