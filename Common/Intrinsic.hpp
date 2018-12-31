@@ -2,6 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <type_traits>
+#include <limits.h>
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -361,8 +362,13 @@ namespace accel::Intrinsic {
     //
     template<typename __IntegerType>
     __forceinline
-    __IntegerType RotateShiftLeft(__IntegerType x, int shift) noexcept {
-        return (x << shift) | (x >> (sizeof(__IntegerType) * 8 - shift));
+    __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value, "RotateShiftLeft failure! Not a integer type.");
+        shift %= sizeof(__IntegerType) * CHAR_BIT;
+        if (shift == 0)
+            return x;
+        else
+            return (x << shift) | (x >> (sizeof(__IntegerType) * CHAR_BIT - shift));
     }
 
     //
@@ -370,8 +376,13 @@ namespace accel::Intrinsic {
     //
     template<typename __IntegerType>
     __forceinline
-    __IntegerType RotateShiftRight(__IntegerType x, int shift) noexcept {
-        return (x >> shift) | (x << (sizeof(__IntegerType) * 8 - shift));
+    __IntegerType RotateShiftRight(__IntegerType x, unsigned shift) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value, "RotateShiftRight failure! Not a integer type.");
+        shift %= sizeof(__IntegerType) * CHAR_BIT;
+        if (shift == 0)
+            return x;
+        else
+            return (x >> shift) | (x << (sizeof(__IntegerType) * 8 - shift));
     }
 }
 
