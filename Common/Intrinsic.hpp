@@ -1,6 +1,7 @@
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
+#include <type_traits>
 
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -333,42 +334,26 @@ namespace accel::Intrinsic {
     //  Begin ByteSwap
     //
     template<typename __IntegerType>
-    __IntegerType ByteSwap(__IntegerType x) noexcept;
-
-    template<>
     __forceinline
-    int16_t ByteSwap(int16_t x) noexcept {
-        return __builtin_bswap16(x);
-    }
+    __IntegerType ByteSwap(__IntegerType x) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value, "ByteSwap failure! Not a integer type.");
+        static_assert(sizeof(__IntegerType) == 2 ||
+                      sizeof(__IntegerType) == 4 ||
+                      sizeof(__IntegerType) == 8, "ByteSwap failure! Unsupported integer type.");
 
-    template<>
-    __forceinline
-    uint16_t ByteSwap(uint16_t x) noexcept {
-        return __builtin_bswap16(x);
-    }
+        if constexpr (sizeof(__IntegerType) == 2) {
+            return __builtin_bswap16(x);
+        }
 
-    template<>
-    __forceinline
-    int32_t ByteSwap(int32_t x) noexcept {
-        return __builtin_bswap32(x);
-    }
+        if constexpr (sizeof(__IntegerType) == 4) {
+            return __builtin_bswap32(x);
+        }
 
-    template<>
-    __forceinline
-    uint32_t ByteSwap(uint32_t x) noexcept {
-        return __builtin_bswap32(x);
-    }
+        if constexpr (sizeof(__IntegerType) == 8) {
+            return __builtin_bswap64(x);
+        }
 
-    template<>
-    __forceinline
-    int64_t ByteSwap(int64_t x) noexcept {
-        return __builtin_bswap64(x);
-    }
-
-    template<>
-    __forceinline
-    uint64_t ByteSwap(uint64_t x) noexcept {
-        return __builtin_bswap64(x);
+        __builtin_unreachable();
     }
 
     //
