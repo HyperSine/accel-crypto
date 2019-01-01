@@ -227,6 +227,58 @@ namespace accel::Intrinsic {
         else
             return (x >> shift) | (x << (sizeof(__IntegerType) * 8 - shift));
     }
+
+    //
+    //  Begin AddCarry
+    //
+    template<typename __IntegerType>
+    __forceinline
+    uint8_t AddCarry(uint8_t carry, __IntegerType a, __IntegerType b, __IntegerType* p_c) {
+        static_assert(std::is_integral<__IntegerType>::value, "AddCarry failure! Not a integer type.");
+        static_assert(sizeof(__IntegerType) == 4 ||
+                      sizeof(__IntegerType) == 8, "AddCarry failure! Unsupported integer type.");
+
+        if (sizeof(__IntegerType) == 4) {
+            return _addcarry_u32(carry, a, b, p_c);
+        }
+
+        if constexpr (sizeof(__IntegerType) == 8) {
+#if defined(_M_X64) || defined(__x86_64__)
+            return _addcarry_u64(carry, a, b, p_c);
+#else
+            static_assert(sizeof(__IntegerType) != 8, "AddCarry failure! Unsupported integer type.");
+#endif
+        }
+
+        __builtin_unreachable();
+    }
+
+    //
+    //  Begin SubBorrow
+    //
+    template<typename __IntegerType>
+    __forceinline
+    uint8_t SubBorrow(uint8_t borrow, __IntegerType a, __IntegerType b, __IntegerType* p_c) {
+        static_assert(std::is_integral<__IntegerType>::value, "SubBorrow failure! Not a integer type.");
+        static_assert(sizeof(__IntegerType) == 4 ||
+                      sizeof(__IntegerType) == 8, "SubBorrow failure! Unsupported integer type.");
+
+        if (sizeof(__IntegerType) == 4) {
+            return _subborrow_u32(borrow, a, b, p_c);
+        }
+
+        if constexpr (sizeof(__IntegerType) == 8) {
+#if defined(_M_X64) || defined(__x86_64__)
+            return _subborrow_u64(borrow, a, b, p_c);
+#else
+            static_assert(sizeof(__IntegerType) != 8, "SubBorrow failure! Unsupported integer type.");
+#endif
+        }
+
+        __builtin_unreachable();
+    }
+
+    
 }
 
 #else
