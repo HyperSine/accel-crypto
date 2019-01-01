@@ -7,6 +7,12 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 
+#ifdef __unreachable
+#error "__unreachable has been defined."
+#else
+#define __unreachable() __assume(0)
+#endif
+
 namespace accel {
 
     //
@@ -166,6 +172,12 @@ namespace accel {
 
 #ifndef __forceinline
 #define __forceinline __attribute__((always_inline)) inline
+#endif
+
+#ifdef __unreachable
+#error "__unreachable has been defined."
+#else
+#define __unreachable() __builtin_unreachable()
 #endif
 
 namespace accel {
