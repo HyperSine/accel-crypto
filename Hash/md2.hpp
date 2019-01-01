@@ -75,7 +75,7 @@ namespace accel::Hash {
             for (uint8_t padding = static_cast<uint8_t>(BlockSize - TailDataSize), i = 0; i < padding; ++i)
                 FormattedTailData[TailDataSize + i] = padding;
             memcpy(FormattedTailData + BlockSize, _Tail.GetPtr(), BlockSize);
-            for (uint32_t j = 0, L = _Tail[_Tail.Length - 1]; j < BlockSize; ++j) {
+            for (uint32_t j = 0, L = _Tail[_Tail.Length() - 1]; j < BlockSize; ++j) {
                 FormattedTailData[BlockSize + j] ^= _PI_SUBST[FormattedTailData[j] ^ L];
                 L = FormattedTailData[BlockSize + j];
             }
