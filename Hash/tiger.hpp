@@ -133,11 +133,12 @@ namespace accel::Hash {
         }
     };
 
-    template<size_t __bits>
-    using TIGER_ALG = _impl_TIGER_ALG<1, __bits>;
-
-    template<size_t __bits>
-    using TIGER2_ALG = _impl_TIGER_ALG<2, __bits>;
+    using TIGER_128_ALG = _impl_TIGER_ALG<1, 128>;
+    using TIGER_160_ALG = _impl_TIGER_ALG<1, 160>;
+    using TIGER_192_ALG = _impl_TIGER_ALG<1, 192>;
+    using TIGER2_128_ALG = _impl_TIGER_ALG<2, 128>;
+    using TIGER2_160_ALG = _impl_TIGER_ALG<2, 160>;
+    using TIGER2_192_ALG = _impl_TIGER_ALG<2, 192>;
 
     inline const uint64_t TIGER_CONSTANT::_t[4][256] = {
         0x02AAB17CF7E90C5ELL   /*    0 */,    0xAC424B03E243A8ECLL   /*    1 */,
