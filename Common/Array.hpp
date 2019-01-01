@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <utility>
 #include <type_traits>
-#include <memory.h>
 
 namespace accel {
 
@@ -12,11 +11,12 @@ namespace accel {
         static_assert(std::is_pod<__Type>::value, "__Type must be a POD type.");
     public:
         using ElementType = __Type;
-        static constexpr size_t Length = __Length;
     private:
         ElementType _Elements[__Length];
     public:
-        static constexpr size_t Size = sizeof(_Elements);
+
+        static constexpr size_t LengthValue = __Length;
+        static constexpr size_t SizeValue = sizeof(_Elements);
 
         //
         //  Begin constructor
@@ -50,6 +50,20 @@ namespace accel {
         }
 
         //
+        //  Begin Length
+        //
+        constexpr size_t Length() const noexcept {
+            return LengthValue;
+        }
+
+        //
+        //  Begin Size
+        //
+        constexpr size_t Size() const noexcept {
+            return SizeValue;
+        }
+
+        //
         //  Begin GetPtr()
         //
         ElementType* GetPtr() noexcept {
@@ -58,17 +72,6 @@ namespace accel {
 
         const ElementType* GetPtr() const noexcept {
             return _Elements;
-        }
-
-        //
-        //  Begin ToArrayOf
-        //
-        template<typename __NewType, size_t __NewLength>
-        Array<__NewType, __NewLength> ToArrayOf() const {
-            static_assert(Array<__NewType, __NewLength>::Size <= Size, "ToArrayOf failure! Overflow detected.");
-            Array<__NewType, __NewLength> result;
-            memcpy(result.GetPtr(), _Elements, Size);
-            return result;
         }
 
         //
@@ -95,8 +98,8 @@ namespace accel {
     private:
         Array<__Type, __Length>& _ArrayInstance;
     public:
-        explicit ArraySecureGuard(Array<__Type, __Length>& ref_array) noexcept :
-            _ArrayInstance(ref_array) {}
+        explicit ArraySecureGuard(Array<__Type, __Length>& refArray) noexcept :
+            _ArrayInstance(refArray) {}
 
         ~ArraySecureGuard() noexcept {
             volatile char* p = reinterpret_cast<char*>(&_ArrayInstance);
@@ -112,13 +115,13 @@ namespace accel {
         Array<__Type, __Length> _ArrayInstance;
     public:
         using ElementType = typename Array<__Type, __Length>::ElementType;
-        static constexpr size_t Length = Array<__Type, __Length>::Length;
-        static constexpr size_t Size = Array<__Type, __Length>::Size;
+        static constexpr size_t LengthValue = Array<__Type, __Length>::LengthValue;
+        static constexpr size_t SizeValue = Array<__Type, __Length>::SizeValue;
 
         //
         //  Begin constructor
         //
-        SecureArray() noexcept :
+        SecureArray() :
             _Guard(_ArrayInstance) {}
 
         template<typename... __Ts>
@@ -140,11 +143,13 @@ namespace accel {
         SecureArray<__Type, __Length>&
         operator=(const SecureArray<__Type, __Length>& other) {
             _ArrayInstance = static_cast<const Array<__Type, __Length>&>(other._ArrayInstance);
+            return *this;
         }
 
         SecureArray<__Type, __Length>&
         operator=(SecureArray<__Type, __Length>&& other) noexcept {
             _ArrayInstance = static_cast<Array<__Type, __Length>&&>(other._ArrayInstance);
+            return *this;
         }
 
         //
@@ -159,6 +164,20 @@ namespace accel {
         }
 
         //
+        //  Begin Length
+        //
+        constexpr size_t Length() const noexcept {
+            return LengthValue;
+        }
+
+        //
+        //  Begin Size
+        //
+        constexpr size_t Size() const noexcept {
+            return SizeValue;
+        }
+
+        //
         //  Begin GetPtr()
         //
         ElementType* GetPtr() noexcept {
@@ -167,14 +186,6 @@ namespace accel {
 
         const ElementType* GetPtr() const noexcept {
             return _ArrayInstance.GetPtr();
-        }
-
-        //
-        //  Begin ToArrayOf
-        //
-        template<typename __NewType, size_t __NewLength>
-        Array<__NewType, __NewLength> ToArrayOf() const {
-            return _ArrayInstance.template ToArrayOf<__NewType, __Length>();
         }
 
         //
