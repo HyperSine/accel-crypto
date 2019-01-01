@@ -28,10 +28,10 @@ namespace accel::Hash {
 
             for (size_t i = 0; i < Rounds; ++i) {
                 for (int j = 0; j < 16; ++j)
-                    Buffer[j] = Intrinsic::ByteSwap(MessageBlock[i][j]);
+                    Buffer[j] = ByteSwap(MessageBlock[i][j]);
 
                 for (int j = 16; j < 80; ++j)
-                    Buffer[j] = Intrinsic::RotateShiftLeft(Buffer[j - 3] ^
+                    Buffer[j] = RotateShiftLeft(Buffer[j - 3] ^
                                                            Buffer[j - 8] ^
                                                            Buffer[j - 14] ^
                                                            Buffer[j - 16], 1);
@@ -43,38 +43,38 @@ namespace accel::Hash {
                 e = _State[4];
 
                 for (int j = 0; j < 20; ++j) {
-                    uint32_t T = Intrinsic::RotateShiftLeft(a, 5);
+                    uint32_t T = RotateShiftLeft(a, 5);
                     T += ((b & c) ^ (~b & d)) + e + 0x5A827999 + Buffer[j];
                     e = d;
                     d = c;
-                    c = Intrinsic::RotateShiftLeft(b, 30);
+                    c = RotateShiftLeft(b, 30);
                     b = a;
                     a = T;
                 }
                 for (int j = 20; j < 40; ++j) {
-                    uint32_t T = Intrinsic::RotateShiftLeft(a, 5);
+                    uint32_t T = RotateShiftLeft(a, 5);
                     T += (b ^ c ^ d) + e + 0x6ED9EBA1 + Buffer[j];
                     e = d;
                     d = c;
-                    c = Intrinsic::RotateShiftLeft(b, 30);
+                    c = RotateShiftLeft(b, 30);
                     b = a;
                     a = T;
                 }
                 for (int j = 40; j < 60; ++j) {
-                    uint32_t T = Intrinsic::RotateShiftLeft(a, 5);
+                    uint32_t T = RotateShiftLeft(a, 5);
                     T += ((b & c) ^ (b & d) ^ (c & d)) + e + 0x8F1BBCDC + Buffer[j];
                     e = d;
                     d = c;
-                    c = Intrinsic::RotateShiftLeft(b, 30);
+                    c = RotateShiftLeft(b, 30);
                     b = a;
                     a = T;
                 }
                 for (int j = 60; j < 80; ++j) {
-                    uint32_t T = Intrinsic::RotateShiftLeft(a, 5);
+                    uint32_t T = RotateShiftLeft(a, 5);
                     T += (b ^ c ^ d) + e + 0xCA62C1D6 + Buffer[j];
                     e = d;
                     d = c;
-                    c = Intrinsic::RotateShiftLeft(b, 30);
+                    c = RotateShiftLeft(b, 30);
                     b = a;
                     a = T;
                 }
@@ -99,7 +99,7 @@ namespace accel::Hash {
             FormattedTailData[TailDataSize] = 0x80;
             Rounds = TailDataSize >= BlockSize - sizeof(uint64_t) ? 2 : 1;
             *reinterpret_cast<uint64_t*>(FormattedTailData + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) : (BlockSize - sizeof(uint64_t)))) =
-                    Intrinsic::ByteSwap<uint64_t>(ProcessedBytes * 8);
+                    ByteSwap<uint64_t>(ProcessedBytes * 8);
 
             Cycle(FormattedTailData, Rounds);
 
@@ -109,11 +109,11 @@ namespace accel::Hash {
                 while (s--) *p++ = 0;
             }
 
-            _State[0] = Intrinsic::ByteSwap(_State[0]);
-            _State[1] = Intrinsic::ByteSwap(_State[1]);
-            _State[2] = Intrinsic::ByteSwap(_State[2]);
-            _State[3] = Intrinsic::ByteSwap(_State[3]);
-            _State[4] = Intrinsic::ByteSwap(_State[4]);
+            _State[0] = ByteSwap(_State[0]);
+            _State[1] = ByteSwap(_State[1]);
+            _State[2] = ByteSwap(_State[2]);
+            _State[3] = ByteSwap(_State[3]);
+            _State[4] = ByteSwap(_State[4]);
         }
 
         ByteArray<DigestSize> Digest() const noexcept {

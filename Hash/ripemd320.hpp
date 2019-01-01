@@ -120,16 +120,16 @@ namespace accel::Hash {
                           uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD, uint32_t& EE,
                           uint32_t& T,
                           const uint32_t (&X)[16]) noexcept {
-            T = Intrinsic::RotateShiftLeft<uint32_t>(A + _f<__Index>(B, C, D) + X[_r[__Index]] + _K<__Index>(), _s[__Index]) + E;
+            T = RotateShiftLeft<uint32_t>(A + _f<__Index>(B, C, D) + X[_r[__Index]] + _K<__Index>(), _s[__Index]) + E;
             A = E;
             E = D;
-            D = Intrinsic::RotateShiftLeft<uint32_t>(C, 10);
+            D = RotateShiftLeft<uint32_t>(C, 10);
             C = B;
             B = T;
-            T = Intrinsic::RotateShiftLeft<uint32_t>(AA + _f<79 - __Index>(BB, CC, DD) + X[_rr[__Index]] + _KK<__Index>(), _ss[__Index]) + EE;
+            T = RotateShiftLeft<uint32_t>(AA + _f<79 - __Index>(BB, CC, DD) + X[_rr[__Index]] + _KK<__Index>(), _ss[__Index]) + EE;
             AA = EE;
             EE = DD;
-            DD = Intrinsic::RotateShiftLeft<uint32_t>(CC, 10);
+            DD = RotateShiftLeft<uint32_t>(CC, 10);
             CC = BB;
             BB = T;
 

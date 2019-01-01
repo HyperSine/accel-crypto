@@ -1,5 +1,4 @@
 #pragma once
-#include <stdint.h>
 #include "../Common/Array.hpp"
 #include "../Common/Intrinsic.hpp"
 #include <memory.h>
@@ -35,10 +34,10 @@ namespace accel::Hash {
                               uint32_t& T,
                               uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t& E,
                               uint32_t X, uint32_t K, uint32_t s) noexcept {
-            T = Intrinsic::RotateShiftLeft(A + Func(B, C, D) + X + K, s) + E;
+            T = RotateShiftLeft(A + Func(B, C, D) + X + K, s) + E;
             A = E;
             E = D;
-            D = Intrinsic::RotateShiftLeft(C, 10);
+            D = RotateShiftLeft(C, 10);
             C = B;
             B = T;
         }

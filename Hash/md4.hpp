@@ -25,17 +25,17 @@ namespace accel::Hash {
 
         void _FF(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t K, uint32_t s) noexcept {
             A += _F(B, C, D) + K;
-            A = Intrinsic::RotateShiftLeft(A, s);
+            A = RotateShiftLeft(A, s);
         }
 
         void _GG(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t K, uint32_t s) noexcept {
             A += _G(B, C, D) + K + 0x5A827999u;
-            A = Intrinsic::RotateShiftLeft(A, s);
+            A = RotateShiftLeft(A, s);
         }
 
         void _HH(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t K, uint32_t s) noexcept {
             A += _H(B, C, D) + K + 0x6ED9EBA1u;
-            A = Intrinsic::RotateShiftLeft(A, s);
+            A = RotateShiftLeft(A, s);
         }
 
     public:

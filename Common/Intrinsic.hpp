@@ -7,7 +7,7 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 
-namespace accel::Intrinsic {
+namespace accel {
 
     //
     //  Begin ByteSwap
@@ -168,7 +168,7 @@ namespace accel::Intrinsic {
 #define __forceinline __attribute__((always_inline)) inline
 #endif
 
-namespace accel::Intrinsic {
+namespace accel {
 
     //
     //  Begin ByteSwap
