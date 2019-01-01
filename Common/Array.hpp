@@ -21,10 +21,10 @@ namespace accel {
         //
         //  Begin constructor
         //
-        Array() = default;
+        constexpr Array() = default;
 
         template<typename... __Ts>
-        explicit Array(__Ts&&... Args) :
+        constexpr explicit Array(__Ts&&... Args) :
             _Elements{ std::forward<__Ts>(Args)... } {}
 
         Array(const Array<__Type, __Length>& other) = default;
