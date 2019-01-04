@@ -19,96 +19,49 @@ namespace accel {
     //  Begin ByteSwap
     //
     template<typename __IntegerType>
-    __IntegerType ByteSwap(__IntegerType x) noexcept;
+    __IntegerType ByteSwap(__IntegerType x) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value, 
+                      "ByteSwap failure! Not a integer type.");
 
-    template<>
-    __forceinline
-    int16_t ByteSwap(int16_t x) noexcept {
-        return _byteswap_ushort(x);
-    }
-
-    template<>
-    __forceinline
-    uint16_t ByteSwap(uint16_t x) noexcept {
-        return _byteswap_ushort(x);
-    }
-
-    template<>
-    __forceinline
-    int32_t ByteSwap(int32_t x) noexcept {
-        return _byteswap_ulong(x);
-    }
-
-    template<>
-    __forceinline
-    uint32_t ByteSwap(uint32_t x) noexcept {
-        return _byteswap_ulong(x);
-    }
-
-    template<>
-    __forceinline
-    int64_t ByteSwap(int64_t x) noexcept {
-        return _byteswap_uint64(x);
-    }
-
-    template<>
-    __forceinline
-    uint64_t ByteSwap(uint64_t x) noexcept {
-        return _byteswap_uint64(x);
+        if constexpr (sizeof(x) == 2) {
+            return _byteswap_ushort(static_cast<uint16_t>(x));
+        } else if constexpr (sizeof(x) == 4) {
+            return _byteswap_ulong(static_cast<uint32_t>(x));
+        } else if constexpr (sizeof(x) == 8) {
+            return _byteswap_uint64(static_cast<uint64_t>(x));
+        } else {
+            static_assert(sizeof(__IntegerType) == 2 ||
+                          sizeof(__IntegerType) == 4 ||
+                          sizeof(__IntegerType) == 8, 
+                          "ByteSwap failure! Unsupported integer type.");
+        }
+        __unreachable();
     }
 
     //
     //  Begin RotateShiftLeft
     //
     template<typename __IntegerType>
-    __IntegerType RotateShiftLeft(__IntegerType x, int shift) noexcept;
+    __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value, 
+                      "RotateShiftLeft failure! Not a integer type.");
 
-    template<>
-    __forceinline
-    int8_t RotateShiftLeft<int8_t>(int8_t x, int shift) noexcept {
-        return _rotl8(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint8_t RotateShiftLeft<uint8_t>(uint8_t x, int shift) noexcept {
-        return _rotl8(x, shift);
-    }
-
-    template<>
-    __forceinline
-    int16_t RotateShiftLeft<int16_t>(int16_t x, int shift) noexcept {
-        return _rotl16(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint16_t RotateShiftLeft<uint16_t>(uint16_t x, int shift) noexcept {
-        return _rotl16(x, shift);
-    }
-
-    template<>
-    __forceinline
-    int32_t RotateShiftLeft<int32_t>(int32_t x, int shift) noexcept {
-        return _rotl(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint32_t RotateShiftLeft<uint32_t>(uint32_t x, int shift) noexcept {
-        return _rotl(x, shift);
-    }
-
-    template<>
-    __forceinline
-    int64_t RotateShiftLeft<int64_t>(int64_t x, int shift) noexcept {
-        return _rotl64(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint64_t RotateShiftLeft<uint64_t>(uint64_t x, int shift) noexcept {
-        return _rotl64(x, shift);
+        if constexpr (sizeof(x) == 1) {
+            return _rotl8(static_cast<uint8_t>(x), shift);
+        } else if constexpr (sizeof(x) == 2) {
+            return _rotl16(static_cast<uint16_t>(x), shift);
+        } else if constexpr (sizeof(x) == 4) {
+            return _rotl(static_cast<uint32_t>(x), shift);
+        } else if constexpr (sizeof(x) == 8) {
+            return _rotl64(static_cast<uint64_t>(x), shift);
+        } else {
+            static_assert(sizeof(__IntegerType) == 1 || 
+                          sizeof(__IntegerType) == 2 ||
+                          sizeof(__IntegerType) == 4 ||
+                          sizeof(__IntegerType) == 8,
+                          "RotateShiftLeft failure! Unsupported integer type.");
+        }
+        __unreachable();
     }
 
     //
@@ -116,54 +69,26 @@ namespace accel {
     //
 
     template<typename __IntegerType>
-    __IntegerType RotateShiftRight(__IntegerType x, int shift) noexcept;
+    __IntegerType RotateShiftRight(__IntegerType x, int shift) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "RotateShiftRight failure! Not a integer type.");
 
-    template<>
-    __forceinline
-    int8_t RotateShiftRight<int8_t>(int8_t x, int shift) noexcept {
-        return _rotr8(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint8_t RotateShiftRight<uint8_t>(uint8_t x, int shift) noexcept {
-        return _rotr8(x, shift);
-    }
-
-    template<>
-    __forceinline
-    int16_t RotateShiftRight<int16_t>(int16_t x, int shift) noexcept {
-        return _rotr16(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint16_t RotateShiftRight<uint16_t>(uint16_t x, int shift) noexcept {
-        return _rotr16(x, shift);
-    }
-
-    template<>
-    __forceinline
-    int32_t RotateShiftRight<int32_t>(int32_t x, int shift) noexcept {
-        return _rotr(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint32_t RotateShiftRight<uint32_t>(uint32_t x, int shift) noexcept {
-        return _rotr(x, shift);
-    }
-
-    template<>
-    __forceinline
-    int64_t RotateShiftRight<int64_t>(int64_t x, int shift) noexcept {
-        return _rotr64(x, shift);
-    }
-
-    template<>
-    __forceinline
-    uint64_t RotateShiftRight<uint64_t>(uint64_t x, int shift) noexcept {
-        return _rotr64(x, shift);
+        if constexpr (sizeof(x) == 1) {
+            return _rotr8(static_cast<uint8_t>(x), shift);
+        } else if constexpr (sizeof(x) == 2) {
+            return _rotr16(static_cast<uint16_t>(x), shift);
+        } else if constexpr (sizeof(x) == 4) {
+            return _rotr(static_cast<uint32_t>(x), shift);
+        } else if constexpr (sizeof(x) == 8) {
+            return _rotr64(static_cast<uint64_t>(x), shift);
+        } else {
+            static_assert(sizeof(__IntegerType) == 1 ||
+                          sizeof(__IntegerType) == 2 ||
+                          sizeof(__IntegerType) == 4 ||
+                          sizeof(__IntegerType) == 8,
+                          "RotateShiftRight failure! Unsupported integer type.");
+        }
+        __unreachable();
     }
 }
 
