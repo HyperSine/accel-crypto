@@ -87,6 +87,12 @@ namespace accel {
             return *reinterpret_cast<const Array<__NewType, __NewLength>*>(this);
         }
 
+        void SecureZero() noexcept {
+            volatile char* p = reinterpret_cast<char*>(_Elements);
+            size_t s = sizeof(_Elements);
+            while (s--) *p++ = 0;
+        }
+
         //
         //  Begin destructor
         //
@@ -199,6 +205,10 @@ namespace accel {
         template<typename __NewType, size_t __NewLength>
         const Array<__NewType, __NewLength>& AsArrayOf() const {
             return _ArrayInstance.template AsArrayOf<__NewType, __NewLength>();
+        }
+
+        void SecureZero() noexcept {
+            _ArrayInstance.SecureZero();
         }
 
         //
