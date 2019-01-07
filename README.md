@@ -6,7 +6,17 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
 
 ## Supported Symmetric Algorithm
 
-* AES (AESNI implement)
+* AES
+
+  * No-instruction-set-required version
+  
+  * AESNI instruction set version
+
+* Rijndael
+  
+  KeyBits = 128, 160, 192, 224, 256
+  
+  BlockBits = 128, 160, 192, 224, 256
 
 ## Supported Hash Algorithm
 
