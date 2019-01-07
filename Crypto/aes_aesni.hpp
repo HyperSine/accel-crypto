@@ -4,7 +4,7 @@
 
 // Detect if AESNI feature is enabled.
 // For MSVC detect if SSE2 is enabled only.
-#if defined(__GNUC__) && defined(__AES__) || defined(_MSC_VER) && _M_IX86_FP >= 2
+#if defined(__GNUC__) && defined(__AES__) || defined(_MSC_VER) && (_M_IX86_FP >= 2 || _M_AMD64)
 
 namespace accel::Crypto {
 
