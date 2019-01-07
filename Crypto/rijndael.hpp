@@ -1,6 +1,7 @@
 #pragma once
 #include "../Common/Array.hpp"
 #include "../Common/Intrinsic.hpp"
+#include <memory.h>
 
 namespace accel::Crypto {
 
@@ -17,389 +18,435 @@ namespace accel::Crypto {
         static const uint8_t GF2p8x0E[256];
     };
 
-    template<size_t __key_bits, size_t __block_bits>
+    template<size_t __KeyBits, size_t __BlockBits>
     class RIJNDAEL_ALG : public _RIJNDAEL_CONSTANT {
-        static_assert(__key_bits == 128 ||
-                      __key_bits == 160 ||
-                      __key_bits == 192 ||
-                      __key_bits == 224 ||
-                      __key_bits == 256, "RIJNDAEL_ALG failure! Unsupported __key_bits.");
+        static_assert(__KeyBits == 128 ||
+                      __KeyBits == 160 ||
+                      __KeyBits == 192 ||
+                      __KeyBits == 224 ||
+                      __KeyBits == 256, "RIJNDAEL_ALG failure! Unsupported __KeyBits.");
 
-        static_assert(__block_bits == 128 ||
-                      __block_bits == 160 ||
-                      __block_bits == 192 ||
-                      __block_bits == 224 ||
-                      __block_bits == 256, "RIJNDAEL_ALG failure! Unsupported __block_bits.");
+        static_assert(__BlockBits == 128 ||
+                      __BlockBits == 160 ||
+                      __BlockBits == 192 ||
+                      __BlockBits == 224 ||
+                      __BlockBits == 256, "RIJNDAEL_ALG failure! Unsupported __BlockBits.");
     public:
-        static constexpr size_t BlockSizeValue = __block_bits / 8;
-        static constexpr size_t KeySizeValue = __key_bits / 8;
+        static constexpr size_t BlockSizeValue = __BlockBits / 8;
+        static constexpr size_t KeySizeValue = __KeyBits / 8;
     private:
 
-        static constexpr size_t _Nb = __block_bits / 32;
-        static constexpr size_t _Nk = __key_bits / 32;
+        static constexpr size_t _Nb = __BlockBits / 32;
+        static constexpr size_t _Nk = __KeyBits / 32;
         static constexpr size_t _Nr = (_Nb > _Nk ? _Nb : _Nk) + 6;
 
-        union BlockType {
+        union VectorType {
             uint8_t bytes[BlockSizeValue];
             uint32_t dwords[BlockSizeValue / sizeof(uint32_t)];
-            uint64_t qwords[BlockSizeValue / sizeof(uint64_t)];
+
+            VectorType& operator^=(const VectorType& Other) noexcept {
+                dwords[0] ^= Other.dwords[0];
+                dwords[1] ^= Other.dwords[1];
+                dwords[2] ^= Other.dwords[2];
+                dwords[3] ^= Other.dwords[3];
+                if constexpr (BlockSizeValue >= 20) {
+                    dwords[4] ^= Other.dwords[4];
+                }
+                if constexpr (BlockSizeValue >= 24) {
+                    dwords[5] ^= Other.dwords[5];
+                }
+                if constexpr (BlockSizeValue >= 28) {
+                    dwords[6] ^= Other.dwords[6];
+                }
+                if constexpr (BlockSizeValue == 32) {
+                    dwords[7] ^= Other.dwords[7];
+                }
+                return *this;
+            }
         };
 
-        // make sure that sizeof(BlockType) is equal to BlockSizeValue
-        static_assert(sizeof(BlockType) == BlockSizeValue);
+        // make sure that sizeof(VectorType) is equal to BlockSizeValue
+        static_assert(sizeof(VectorType) == BlockSizeValue);
 
-        using RoundKeysType = SecureArray<uint32_t, _Nb * (_Nr + 1)>;
-        RoundKeysType _Key;
-        RoundKeysType _InvKey;
+        using BlockType = VectorType;
+        using RoundKeyType = VectorType;
+
+        SecureArray<RoundKeyType, _Nr + 1> _Key;
+        SecureArray<RoundKeyType, _Nr + 1> _InvKey;
+
+        //
+        //  Begin byte substitution stuff
+        //
 
         template<size_t __Index, bool __InverseSub>
         __forceinline
-        static void _ByteSub_impl(BlockType* pBlock) noexcept {
+        static void _ByteSubLoop(BlockType& RefBlock) noexcept {
             if constexpr (__InverseSub == false) {
-                pBlock->bytes[__Index] = 
-                    _RIJNDAEL_CONSTANT::SBox[pBlock->bytes[__Index]];
+                RefBlock.bytes[__Index] =
+                    _RIJNDAEL_CONSTANT::SBox[RefBlock.bytes[__Index]];
             } else {
-                pBlock->bytes[__Index] = 
-                    _RIJNDAEL_CONSTANT::InverseSBox[pBlock->bytes[__Index]];
+                RefBlock.bytes[__Index] =
+                    _RIJNDAEL_CONSTANT::InverseSBox[RefBlock.bytes[__Index]];
             }
         }
 
         template<size_t... __Indexes>
         __forceinline
-        static void _ByteSub(BlockType* pBlock, std::index_sequence<__Indexes...>) noexcept {
-            (_ByteSub_impl<__Indexes, false>(pBlock), ...);
+        static void _ByteSubLoops(BlockType& RefBlock, std::index_sequence<__Indexes...>) noexcept {
+            (_ByteSubLoop<__Indexes, false>(RefBlock), ...);
         }
 
         template<size_t... __Indexes>
         __forceinline
-        static void _InverseByteSub(BlockType* pBlock, std::index_sequence<__Indexes...>) noexcept {
-            (_ByteSub_impl<__Indexes, true>(pBlock), ...);
+        static void _InverseByteSubLoops(BlockType& RefBlock, std::index_sequence<__Indexes...>) noexcept {
+            (_ByteSubLoop<__Indexes, true>(RefBlock), ...);
         }
 
-        // Nb   C1  C2  C3
-        // 4    1   2   3
-        // 5    1   2   3
-        // 6    1   2   3
-        // 7    1   2   4
-        // 8    1   3   4
         __forceinline
-        static void _ShiftRow(BlockType* pBlock) noexcept {
-            //uint8_t* pBlock = reinterpret_cast<uint8_t*>(pData);
+        static void _ByteSub(BlockType& RefBlock) noexcept {
+            _ByteSubLoops(RefBlock, std::make_index_sequence<BlockSizeValue>{});
+        }
+
+        __forceinline
+        static void _InverseByteSub(BlockType& RefBlock) noexcept {
+            _InverseByteSubLoops(RefBlock, std::make_index_sequence<BlockSizeValue>{});
+        }
+
+        //
+        //  Begin shift row stuff
+        //
+
+        __forceinline
+        static void _ShiftRow(BlockType& RefBlock) noexcept {
+            // Nb   C1  C2  C3
+            // 4    1   2   3
+            // 5    1   2   3
+            // 6    1   2   3
+            // 7    1   2   4
+            // 8    1   3   4
             if constexpr (_Nb == 4) {               // checked
                 // 0  4  8  12
                 // 1  5  9  13              <<< 1
                 // 2  6  10 14              <<< 2
                 // 3  7  11 15              <<< 3
                 // Shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);    // 5   1  9   13
-                std::swap(pBlock->bytes[5], pBlock->bytes[9]);    // 5   9  1   13
-                std::swap(pBlock->bytes[9], pBlock->bytes[13]);   // 5   9  13  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);    // 5   1  9   13
+                std::swap(RefBlock.bytes[5], RefBlock.bytes[9]);    // 5   9  1   13
+                std::swap(RefBlock.bytes[9], RefBlock.bytes[13]);   // 5   9  13  1
                 // Shift the third row;
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);   // 10  6  2   14
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);   // 10  14 2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);   // 10  6  2   14
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);   // 10  14 2   6
                 // Shift the fourth row;
-                std::swap(pBlock->bytes[3], pBlock->bytes[15]);   // 15  7  11  3
-                std::swap(pBlock->bytes[15], pBlock->bytes[11]);  // 15  7  3   11
-                std::swap(pBlock->bytes[11], pBlock->bytes[7]);   // 15  3  7   11
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[15]);   // 15  7  11  3
+                std::swap(RefBlock.bytes[15], RefBlock.bytes[11]);  // 15  7  3   11
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[7]);   // 15  3  7   11
             } else if constexpr (_Nb == 5) {        // checked
                 // 0  4  8  12  16
                 // 1  5  9  13  17          <<< 1
                 // 2  6  10 14  18          <<< 2
                 // 3  7  11 15  19          <<< 3
                 //Shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);    // 5  1    9   13  17
-                std::swap(pBlock->bytes[5], pBlock->bytes[9]);    // 5  9    1   13  17
-                std::swap(pBlock->bytes[9], pBlock->bytes[13]);   // 5  9    13  1   17
-                std::swap(pBlock->bytes[13], pBlock->bytes[17]);  // 5  9    13  17  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);    // 5  1    9   13  17
+                std::swap(RefBlock.bytes[5], RefBlock.bytes[9]);    // 5  9    1   13  17
+                std::swap(RefBlock.bytes[9], RefBlock.bytes[13]);   // 5  9    13  1   17
+                std::swap(RefBlock.bytes[13], RefBlock.bytes[17]);  // 5  9    13  17  1
                 //Shift the third row;
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);   // 10  6   2   14  18
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);   // 10  14  2   6   18
-                std::swap(pBlock->bytes[10], pBlock->bytes[18]);  // 10  14  18  6   2
-                std::swap(pBlock->bytes[14], pBlock->bytes[18]);  // 10  14  18  2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);   // 10  6   2   14  18
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);   // 10  14  2   6   18
+                std::swap(RefBlock.bytes[10], RefBlock.bytes[18]);  // 10  14  18  6   2
+                std::swap(RefBlock.bytes[14], RefBlock.bytes[18]);  // 10  14  18  2   6
                 //Shift the fourth row;
-                std::swap(pBlock->bytes[3], pBlock->bytes[11]);   // 11  7   3   15  19
-                std::swap(pBlock->bytes[7], pBlock->bytes[15]);   // 11  15  3   7   19
-                std::swap(pBlock->bytes[3], pBlock->bytes[19]);   // 19  15  3   7   11
-                std::swap(pBlock->bytes[3], pBlock->bytes[7]);    // 15  19  3   7   11
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[11]);   // 11  7   3   15  19
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[15]);   // 11  15  3   7   19
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[19]);   // 19  15  3   7   11
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[7]);    // 15  19  3   7   11
             } else if constexpr (_Nb == 6) {        // checked
                 // 0  4  8  12  16  20
                 // 1  5  9  13  17  21      <<< 1
                 // 2  6  10 14  18  22      <<< 2
                 // 3  7  11 15  19  23      <<< 3
                 // Shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[21]);   // 21  5  9   13  17  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[17]);   // 17  5  9   13  21  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[13]);   // 13  5  9   17  21  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[9]);    // 9   5  13  17  21  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);    // 5   9  13  17  21  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[21]);   // 21  5  9   13  17  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[17]);   // 17  5  9   13  21  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[13]);   // 13  5  9   17  21  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[9]);    // 9   5  13  17  21  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);    // 5   9  13  17  21  1
                 // Shift the third row;
-                std::swap(pBlock->bytes[2], pBlock->bytes[18]);   // 18  6  10  14  2   22
-                std::swap(pBlock->bytes[6], pBlock->bytes[22]);   // 18  22 10  14  2   6
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);   // 10  22 18  14  2   6
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);   // 10  14 18  22  2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[18]);   // 18  6  10  14  2   22
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[22]);   // 18  22 10  14  2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);   // 10  22 18  14  2   6
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);   // 10  14 18  22  2   6
                 // Shift the fourth row;
-                std::swap(pBlock->bytes[3], pBlock->bytes[15]);   // 15  7  11  3   19  23
-                std::swap(pBlock->bytes[7], pBlock->bytes[19]);   // 15  19 11  3   7   23
-                std::swap(pBlock->bytes[11], pBlock->bytes[23]);  // 15  19 23  3   7   11
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[15]);   // 15  7  11  3   19  23
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[19]);   // 15  19 11  3   7   23
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[23]);  // 15  19 23  3   7   11
             } else if constexpr (_Nb == 7) {        // checked
                 // 0  4  8  12  16  20  24
                 // 1  5  9  13  17  21  25      <<< 1
                 // 2  6  10 14  18  22  26      <<< 2
                 // 3  7  11 15  19  23  27      <<< 4
                 // Shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[25]);   // 25  5  9   13  17  21  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[21]);   // 21  5  9   13  17  25  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[17]);   // 17  5  9   13  21  25  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[13]);   // 13  5  9   17  21  25  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[9]);    // 9   5  13  17  21  25  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);    // 5   9  13  17  21  25  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[25]);   // 25  5  9   13  17  21  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[21]);   // 21  5  9   13  17  25  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[17]);   // 17  5  9   13  21  25  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[13]);   // 13  5  9   17  21  25  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[9]);    // 9   5  13  17  21  25  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);    // 5   9  13  17  21  25  1
                 // Shift the third row;
-                std::swap(pBlock->bytes[2], pBlock->bytes[22]);   // 22  6  10  14  18  2   26
-                std::swap(pBlock->bytes[6], pBlock->bytes[26]);   // 22  26 10  14  18  2   6
-                std::swap(pBlock->bytes[2], pBlock->bytes[14]);   // 14  26 10  22  18  2   6
-                std::swap(pBlock->bytes[6], pBlock->bytes[18]);   // 14  18 10  22  26  2   6
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);   // 10  18 14  22  26  2   6
-                std::swap(pBlock->bytes[6], pBlock->bytes[10]);   // 10  14 18  22  26  2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[22]);   // 22  6  10  14  18  2   26
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[26]);   // 22  26 10  14  18  2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[14]);   // 14  26 10  22  18  2   6
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[18]);   // 14  18 10  22  26  2   6
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);   // 10  18 14  22  26  2   6
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[10]);   // 10  14 18  22  26  2   6
                 // Shift the fourth row;
-                std::swap(pBlock->bytes[3], pBlock->bytes[15]);   // 15  7  11  3   19  23  27
-                std::swap(pBlock->bytes[7], pBlock->bytes[19]);   // 15  19 11  3   7   23  27
-                std::swap(pBlock->bytes[11], pBlock->bytes[23]);  // 15  19 23  3   7   11  27
-                std::swap(pBlock->bytes[3], pBlock->bytes[27]);   // 27  19 23  3   7   11  15
-                std::swap(pBlock->bytes[3], pBlock->bytes[7]);    // 19  27 23  3   7   11  15
-                std::swap(pBlock->bytes[7], pBlock->bytes[11]);   // 19  23 27  3   7   11  15
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[15]);   // 15  7  11  3   19  23  27
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[19]);   // 15  19 11  3   7   23  27
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[23]);  // 15  19 23  3   7   11  27
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[27]);   // 27  19 23  3   7   11  15
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[7]);    // 19  27 23  3   7   11  15
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[11]);   // 19  23 27  3   7   11  15
             } else if constexpr (_Nb == 8) {        // checked
                 // 0  4  8  12  16  20  24  28
                 // 1  5  9  13  17  21  25  29      <<< 1
                 // 2  6  10 14  18  22  26  30      <<< 3
                 // 3  7  11 15  19  23  27  31      <<< 4
                 // Shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[29]);   // 29  5  9   13  17  21  25  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[25]);   // 25  5  9   13  17  21  29  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[21]);   // 21  5  9   13  17  25  29  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[17]);   // 17  5  9   13  21  25  29  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[13]);   // 13  5  9   17  21  25  29  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[9]);    // 9   5  13  17  21  25  29  1
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);    // 5   9  13  17  21  25  29  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[29]);   // 29  5  9   13  17  21  25  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[25]);   // 25  5  9   13  17  21  29  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[21]);   // 21  5  9   13  17  25  29  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[17]);   // 17  5  9   13  21  25  29  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[13]);   // 13  5  9   17  21  25  29  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[9]);    // 9   5  13  17  21  25  29  1
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);    // 5   9  13  17  21  25  29  1
                 // Shift the third row;
-                std::swap(pBlock->bytes[2], pBlock->bytes[22]);   // 22  6   10  14  18  2  26  30
-                std::swap(pBlock->bytes[6], pBlock->bytes[26]);   // 22  26  10  14  18  2  6   30
-                std::swap(pBlock->bytes[10], pBlock->bytes[30]);  // 22  26  30  14  18  2  6   10
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);   // 30  26  22  14  18  2  6   10
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);   // 30  14  22  26  18  2  6   10
-                std::swap(pBlock->bytes[2], pBlock->bytes[18]);   // 18  14  22  26  30  2  6   10
-                std::swap(pBlock->bytes[2], pBlock->bytes[6]);    // 14  18  22  26  30  2  6   10
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[22]);   // 22  6   10  14  18  2  26  30
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[26]);   // 22  26  10  14  18  2  6   30
+                std::swap(RefBlock.bytes[10], RefBlock.bytes[30]);  // 22  26  30  14  18  2  6   10
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);   // 30  26  22  14  18  2  6   10
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);   // 30  14  22  26  18  2  6   10
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[18]);   // 18  14  22  26  30  2  6   10
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[6]);    // 14  18  22  26  30  2  6   10
                 // Shift the fourth row;
-                std::swap(pBlock->bytes[3], pBlock->bytes[19]);   // 19  7   11  15  3  23  27  31
-                std::swap(pBlock->bytes[7], pBlock->bytes[23]);   // 19  23  11  15  3  7   27  31
-                std::swap(pBlock->bytes[11], pBlock->bytes[27]);  // 19  23  27  15  3  7   11  31
-                std::swap(pBlock->bytes[15], pBlock->bytes[31]);  // 19  23  27  31  3  7   11  15
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[19]);   // 19  7   11  15  3  23  27  31
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[23]);   // 19  23  11  15  3  7   27  31
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[27]);  // 19  23  27  15  3  7   11  31
+                std::swap(RefBlock.bytes[15], RefBlock.bytes[31]);  // 19  23  27  31  3  7   11  15
             } else {
                 __unreachable();
             }
         }
 
         __forceinline
-        static void _InverseShiftRow(BlockType* pBlock) noexcept {
+        static void _InverseShiftRow(BlockType& RefBlock) noexcept {
             if constexpr (_Nb == 4) {               // checked
                 // Inverse shift the second row;
-                std::swap(pBlock->bytes[9], pBlock->bytes[13]);
-                std::swap(pBlock->bytes[5], pBlock->bytes[9]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);
+                std::swap(RefBlock.bytes[9], RefBlock.bytes[13]);
+                std::swap(RefBlock.bytes[5], RefBlock.bytes[9]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);
                 // Inverse shift the third row;
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);
                 // Inverse shift the fourth row;
-                std::swap(pBlock->bytes[11], pBlock->bytes[7]);
-                std::swap(pBlock->bytes[15], pBlock->bytes[11]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[15]);
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[7]);
+                std::swap(RefBlock.bytes[15], RefBlock.bytes[11]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[15]);
             } else if constexpr (_Nb == 5) {        // checked
                 // Inverse shift the second row;
-                std::swap(pBlock->bytes[13], pBlock->bytes[17]);
-                std::swap(pBlock->bytes[9], pBlock->bytes[13]);
-                std::swap(pBlock->bytes[5], pBlock->bytes[9]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);
+                std::swap(RefBlock.bytes[13], RefBlock.bytes[17]);
+                std::swap(RefBlock.bytes[9], RefBlock.bytes[13]);
+                std::swap(RefBlock.bytes[5], RefBlock.bytes[9]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);
                 //Inverse shift the third row;
-                std::swap(pBlock->bytes[14], pBlock->bytes[18]);
-                std::swap(pBlock->bytes[10], pBlock->bytes[18]);
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);
+                std::swap(RefBlock.bytes[14], RefBlock.bytes[18]);
+                std::swap(RefBlock.bytes[10], RefBlock.bytes[18]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);
                 //Inverse shift the fourth row;
-                std::swap(pBlock->bytes[3], pBlock->bytes[7]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[19]);
-                std::swap(pBlock->bytes[7], pBlock->bytes[15]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[11]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[7]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[19]);
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[15]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[11]);
             } else if constexpr (_Nb == 6) {        // checked
                 // Inverse shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[9]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[13]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[17]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[21]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[9]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[13]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[17]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[21]);
                 // Inverse shift the third row;
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);
-                std::swap(pBlock->bytes[6], pBlock->bytes[22]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[18]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[22]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[18]);
                 // Inverse shift the fourth row;
-                std::swap(pBlock->bytes[11], pBlock->bytes[23]);
-                std::swap(pBlock->bytes[7], pBlock->bytes[19]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[15]);
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[23]);
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[19]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[15]);
             } else if constexpr (_Nb == 7) {        // checked
                 // Inverse shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[9]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[13]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[17]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[21]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[25]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[9]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[13]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[17]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[21]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[25]);
                 // Inverse shift the third row;
-                std::swap(pBlock->bytes[6], pBlock->bytes[10]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);
-                std::swap(pBlock->bytes[6], pBlock->bytes[18]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[14]);
-                std::swap(pBlock->bytes[6], pBlock->bytes[26]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[22]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[10]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[18]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[14]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[26]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[22]);
                 // Shift the fourth row;
-                std::swap(pBlock->bytes[7], pBlock->bytes[11]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[7]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[27]);
-                std::swap(pBlock->bytes[11], pBlock->bytes[23]);
-                std::swap(pBlock->bytes[7], pBlock->bytes[19]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[15]);
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[11]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[7]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[27]);
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[23]);
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[19]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[15]);
             } else if constexpr (_Nb == 8) {        // checked
                 // Shift the second row;
-                std::swap(pBlock->bytes[1], pBlock->bytes[5]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[9]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[13]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[17]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[21]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[25]);
-                std::swap(pBlock->bytes[1], pBlock->bytes[29]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[5]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[9]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[13]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[17]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[21]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[25]);
+                std::swap(RefBlock.bytes[1], RefBlock.bytes[29]);
                 // Shift the third row;
-                std::swap(pBlock->bytes[2], pBlock->bytes[6]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[18]);
-                std::swap(pBlock->bytes[6], pBlock->bytes[14]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[10]);
-                std::swap(pBlock->bytes[10], pBlock->bytes[30]);
-                std::swap(pBlock->bytes[6], pBlock->bytes[26]);
-                std::swap(pBlock->bytes[2], pBlock->bytes[22]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[6]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[18]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[14]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[10]);
+                std::swap(RefBlock.bytes[10], RefBlock.bytes[30]);
+                std::swap(RefBlock.bytes[6], RefBlock.bytes[26]);
+                std::swap(RefBlock.bytes[2], RefBlock.bytes[22]);
                 // Shift the fourth row;
-                std::swap(pBlock->bytes[15], pBlock->bytes[31]);
-                std::swap(pBlock->bytes[11], pBlock->bytes[27]);
-                std::swap(pBlock->bytes[7], pBlock->bytes[23]);
-                std::swap(pBlock->bytes[3], pBlock->bytes[19]);
+                std::swap(RefBlock.bytes[15], RefBlock.bytes[31]);
+                std::swap(RefBlock.bytes[11], RefBlock.bytes[27]);
+                std::swap(RefBlock.bytes[7], RefBlock.bytes[23]);
+                std::swap(RefBlock.bytes[3], RefBlock.bytes[19]);
             } else {
                 __unreachable();
             }
         }
 
+        //
+        //  Begin mix column stuff
+        //
+
         __forceinline
-        static void _MixColumn(BlockType* pBlock) noexcept {
-            for (size_t j = 0; j < BlockSizeValue; j += 4) {
-                uint8_t temp[4];
-                *reinterpret_cast<uint32_t*>(temp) = pBlock->dwords[j / 4];
-                pBlock->bytes[j + 0] = 
-                    _RIJNDAEL_CONSTANT::GF2p8x02[temp[0]] ^
-                    _RIJNDAEL_CONSTANT::GF2p8x03[temp[1]] ^
-                    temp[2] ^
-                    temp[3];
-                pBlock->bytes[j + 1] =
-                    temp[0] ^
-                    _RIJNDAEL_CONSTANT::GF2p8x02[temp[1]] ^
-                    _RIJNDAEL_CONSTANT::GF2p8x03[temp[2]] ^
-                    temp[3];
-                pBlock->bytes[j + 2] =
-                    temp[0] ^
-                    temp[1] ^
-                    _RIJNDAEL_CONSTANT::GF2p8x02[temp[2]] ^
-                    _RIJNDAEL_CONSTANT::GF2p8x03[temp[3]];
-                pBlock->bytes[j + 3] =
-                    _RIJNDAEL_CONSTANT::GF2p8x03[temp[0]] ^
-                    temp[1] ^
-                    temp[2] ^
-                    _RIJNDAEL_CONSTANT::GF2p8x02[temp[3]];
-            }
+        static uint32_t _MatrixTransform(const uint32_t& X) noexcept {
+            union {
+                uint8_t bytes[4];
+                uint32_t dword;
+            } result;
+            auto x = reinterpret_cast<const uint8_t(&)[4]>(X);
+            result.bytes[0] =
+                _RIJNDAEL_CONSTANT::GF2p8x02[x[0]] ^
+                _RIJNDAEL_CONSTANT::GF2p8x03[x[1]] ^
+                x[2] ^
+                x[3];
+            result.bytes[1] =
+                x[0] ^
+                _RIJNDAEL_CONSTANT::GF2p8x02[x[1]] ^
+                _RIJNDAEL_CONSTANT::GF2p8x03[x[2]] ^
+                x[3];
+            result.bytes[2] =
+                x[0] ^
+                x[1] ^
+                _RIJNDAEL_CONSTANT::GF2p8x02[x[2]] ^
+                _RIJNDAEL_CONSTANT::GF2p8x03[x[3]];
+            result.bytes[3] =
+                _RIJNDAEL_CONSTANT::GF2p8x03[x[0]] ^
+                x[1] ^
+                x[2] ^
+                _RIJNDAEL_CONSTANT::GF2p8x02[x[3]];
+            return result.dword;
         }
 
         __forceinline
-        static void _InverseMixColumn(BlockType* pBlock) noexcept {
-            for (size_t j = 0; j < BlockSizeValue; j += 4) {
-                uint8_t temp[4];
-                *reinterpret_cast<uint32_t*>(temp) = pBlock->dwords[j / 4];
-                pBlock->bytes[j + 0] =
-                    GF2p8x0E[temp[0]] ^
-                    GF2p8x0B[temp[1]] ^
-                    GF2p8x0D[temp[2]] ^
-                    GF2p8x09[temp[3]];
-                pBlock->bytes[j + 1] =
-                    GF2p8x09[temp[0]] ^
-                    GF2p8x0E[temp[1]] ^
-                    GF2p8x0B[temp[2]] ^
-                    GF2p8x0D[temp[3]];
-                pBlock->bytes[j + 2] =
-                    GF2p8x0D[temp[0]] ^
-                    GF2p8x09[temp[1]] ^
-                    GF2p8x0E[temp[2]] ^
-                    GF2p8x0B[temp[3]];
-                pBlock->bytes[j + 3] =
-                    GF2p8x0B[temp[0]] ^
-                    GF2p8x0D[temp[1]] ^
-                    GF2p8x09[temp[2]] ^
-                    GF2p8x0E[temp[3]];
+        static uint32_t _InverseMatrixTransform(const uint32_t& X) noexcept {
+            union {
+                uint8_t bytes[4];
+                uint32_t dword;
+            } result;
+            auto x = reinterpret_cast<const uint8_t(&)[4]>(X);
+            result.bytes[0] =
+                GF2p8x0E[x[0]] ^
+                GF2p8x0B[x[1]] ^
+                GF2p8x0D[x[2]] ^
+                GF2p8x09[x[3]];
+            result.bytes[1] =
+                GF2p8x09[x[0]] ^
+                GF2p8x0E[x[1]] ^
+                GF2p8x0B[x[2]] ^
+                GF2p8x0D[x[3]];
+            result.bytes[2] =
+                GF2p8x0D[x[0]] ^
+                GF2p8x09[x[1]] ^
+                GF2p8x0E[x[2]] ^
+                GF2p8x0B[x[3]];
+            result.bytes[3] =
+                GF2p8x0B[x[0]] ^
+                GF2p8x0D[x[1]] ^
+                GF2p8x09[x[2]] ^
+                GF2p8x0E[x[3]];
+            return result.dword;
+        }
+
+        template<bool __Inverse, size_t __Index>
+        __forceinline
+        static void _MixLoop(BlockType& dstRefBlock,
+                             BlockType& srcRefBlock) noexcept {
+            if constexpr (__Inverse == false) {
+                dstRefBlock.dwords[__Index] =
+                    _MatrixTransform(srcRefBlock.dwords[__Index]);
+            } else {
+                dstRefBlock.dwords[__Index] =
+                    _InverseMatrixTransform(srcRefBlock.dwords[__Index]);
             }
         }
+
+        template<bool __Inverse, size_t... __Indexes>
+        __forceinline
+        static void _MixLoops(BlockType& dstRefBlock,
+                              BlockType& srcRefBlock,
+                              std::index_sequence<__Indexes...>) noexcept {
+            (_MixLoop<__Inverse, __Indexes>(dstRefBlock, srcRefBlock), ...);
+        }
+
+        __forceinline
+        static void _MixColumn(BlockType& RefBlock) noexcept {
+            _MixLoops<false>(RefBlock, RefBlock, std::make_index_sequence<_Nb>{});
+        }
+
+        __forceinline
+        static void _InverseMixColumn(BlockType& RefBlock) noexcept {
+            _MixLoops<true>(RefBlock, RefBlock, std::make_index_sequence<_Nb>{});
+        }
+
+        //
+        //  Begin key expansion stuff
+        //
 
         void _InverseKeyExpansion() noexcept {
-            uint32_t* InvKeyPtr = &_InvKey[0];
-            uint32_t* KeyPtr = &_Key[_Key.Length() - _Nb];
-
-            memcpy(InvKeyPtr, KeyPtr, _Nb * sizeof(uint32_t));
-            KeyPtr -= _Nb;
-            InvKeyPtr += _Nb;
-
-            for (; KeyPtr != &_Key[0]; KeyPtr -= _Nb, InvKeyPtr += _Nb) {
-                uint8_t* InvKeyBytePtr = reinterpret_cast<uint8_t*>(InvKeyPtr);
-                uint8_t* KeyBytePtr = reinterpret_cast<uint8_t*>(KeyPtr);
-                for (size_t j = 0; j < BlockSizeValue; j += 4) {
-                    InvKeyBytePtr[j + 0] =
-                        _RIJNDAEL_CONSTANT::GF2p8x0E[KeyBytePtr[j + 0]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0B[KeyBytePtr[j + 1]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0D[KeyBytePtr[j + 2]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x09[KeyBytePtr[j + 3]];
-
-                    InvKeyBytePtr[j + 1] =
-                        _RIJNDAEL_CONSTANT::GF2p8x09[KeyBytePtr[j + 0]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0E[KeyBytePtr[j + 1]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0B[KeyBytePtr[j + 2]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0D[KeyBytePtr[j + 3]];
-
-                    InvKeyBytePtr[j + 2] =
-                        _RIJNDAEL_CONSTANT::GF2p8x0D[KeyBytePtr[j + 0]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x09[KeyBytePtr[j + 1]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0E[KeyBytePtr[j + 2]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0B[KeyBytePtr[j + 3]];
-
-                    InvKeyBytePtr[j + 3] =
-                        _RIJNDAEL_CONSTANT::GF2p8x0B[KeyBytePtr[j + 0]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0D[KeyBytePtr[j + 1]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x09[KeyBytePtr[j + 2]] ^
-                        _RIJNDAEL_CONSTANT::GF2p8x0E[KeyBytePtr[j + 3]];
-                }
-            }
-
-            memcpy(InvKeyPtr, KeyPtr, _Nb * sizeof(uint32_t));
+            _InvKey[0] = _Key[_Nr];
+            for (size_t i = 1; i < _Nr; ++i)
+                _MixLoops<true>(_InvKey[i], _Key[_Nr - i], std::make_index_sequence<_Nb>{});
+            _InvKey[_Nr] = _Key[0];
         }
 
         void _KeyExpansion(const void* pUserKey) noexcept {
-            memcpy(&_Key[0], pUserKey, KeySizeValue);
-
-            for (size_t i = _Nk; i < _Key.Length(); ++i) {
+            auto& KeyInstance = _Key.template AsArrayOf<uint32_t, _Nb * (_Nr + 1)>();
+            memcpy(KeyInstance.GetPtr(), pUserKey, KeySizeValue);
+            for (size_t i = _Nk; i < KeyInstance.Length(); ++i) {
                 union {
-                    uint32_t dword;
                     uint8_t byte[4];
+                    uint32_t dword;
                 } temp;
-
-                temp.dword = _Key[i - 1];
+                temp.dword = KeyInstance[i - 1];
                 if (i % _Nk == 0) {
                     temp.dword = RotateShiftRight<uint32_t>(temp.dword, 8);
                     temp.byte[0] = _RIJNDAEL_CONSTANT::SBox[temp.byte[0]];
@@ -414,27 +461,7 @@ namespace accel::Crypto {
                     temp.byte[2] = _RIJNDAEL_CONSTANT::SBox[temp.byte[2]];
                     temp.byte[3] = _RIJNDAEL_CONSTANT::SBox[temp.byte[3]];
                 }
-                _Key[i] = _Key[i - _Nk] ^ temp.dword;
-            }
-        }
-
-        __forceinline
-        static void _XorBlock(BlockType* pBlock, const RoundKeysType& RefKey, size_t i) noexcept {
-            pBlock->dwords[0] ^= RefKey[i * _Nb];
-            pBlock->dwords[1] ^= RefKey[i * _Nb + 1];
-            pBlock->dwords[2] ^= RefKey[i * _Nb + 2];
-            pBlock->dwords[3] ^= RefKey[i * _Nb + 3];
-            if constexpr (_Nb > 4) {
-                pBlock->dwords[4] ^= RefKey[i * _Nb + 4];
-            }
-            if constexpr (_Nb > 5) {
-                pBlock->dwords[5] ^= RefKey[i * _Nb + 5];
-            }
-            if constexpr (_Nb > 6) {
-                pBlock->dwords[6] ^= RefKey[i * _Nb + 6];
-            }
-            if constexpr (_Nb > 7) {
-                pBlock->dwords[7] ^= RefKey[i * _Nb + 7];
+                KeyInstance[i] = KeyInstance[i - _Nk] ^ temp.dword;
             }
         }
 
@@ -448,6 +475,7 @@ namespace accel::Crypto {
             return KeySizeValue;
         }
 
+        [[nodiscard]]
         bool SetKey(const void* pUserKey, size_t UserKeySize) noexcept {
             if (UserKeySize != KeySizeValue)
                 return false;
@@ -456,33 +484,35 @@ namespace accel::Crypto {
             return true;
         }
 
-        constexpr size_t EncryptBlock(void* pPlaintext) const noexcept {
-            auto pBlock = reinterpret_cast<BlockType*>(pPlaintext);
-            _XorBlock(pBlock, _Key, 0);
+        size_t EncryptBlock(void* pPlaintext) const noexcept {
+            BlockType Text = *reinterpret_cast<BlockType*>(pPlaintext);
+            Text ^= _Key[0];
             for (size_t i = 1; i < _Nr; ++i) {
-                _ByteSub(pBlock, std::make_index_sequence<BlockSizeValue>{});
-                _ShiftRow(pBlock);
-                _MixColumn(pBlock);
-                _XorBlock(pBlock, _Key, i);
+                _ByteSub(Text);
+                _ShiftRow(Text);
+                _MixColumn(Text);
+                Text ^= _Key[i];
             }
-            _ByteSub(pBlock, std::make_index_sequence<BlockSizeValue>{});
-            _ShiftRow(pBlock);
-            _XorBlock(pBlock, _Key, _Nr);
+            _ByteSub(Text);
+            _ShiftRow(Text);
+            Text ^= _Key[_Nr];
+            *reinterpret_cast<BlockType*>(pPlaintext) = Text;
             return BlockSizeValue;
         }
 
-        constexpr size_t DecryptBlock(void* pCiphertext) const noexcept {
-            auto pBlock = reinterpret_cast<BlockType*>(pCiphertext);
-            _XorBlock(pBlock, _InvKey, 0);
+        size_t DecryptBlock(void* pCiphertext) const noexcept {
+            BlockType Text = *reinterpret_cast<BlockType*>(pCiphertext);
+            Text ^= _InvKey[0];
             for (size_t i = 1; i < _Nr; ++i) {
-                _InverseByteSub(pBlock, std::make_index_sequence<BlockSizeValue>{});
-                _InverseShiftRow(pBlock);
-                _InverseMixColumn(pBlock);
-                _XorBlock(pBlock, _InvKey, i);
+                _InverseByteSub(Text);
+                _InverseShiftRow(Text);
+                _InverseMixColumn(Text);
+                Text ^= _InvKey[i];
             }
-            _InverseByteSub(pBlock, std::make_index_sequence<BlockSizeValue>{});
-            _InverseShiftRow(pBlock);
-            _XorBlock(pBlock, _InvKey, _Nr);
+            _InverseByteSub(Text);
+            _InverseShiftRow(Text);
+            Text ^= _InvKey[_Nr];
+            *reinterpret_cast<BlockType*>(pCiphertext) = Text;
             return BlockSizeValue;
         }
 
