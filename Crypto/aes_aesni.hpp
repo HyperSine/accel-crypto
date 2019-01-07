@@ -2,13 +2,17 @@
 #include "../Common/Array.hpp"
 #include "../Common/Intrinsic.hpp"
 
+// Detect if AESNI feature is enabled.
+// For MSVC detect if SSE2 is enabled only.
+#if defined(__GNUC__) && defined(__AES__) || defined(_MSC_VER) && _M_IX86_FP >= 2
+
 namespace accel::Crypto {
 
     template<size_t __key_bits>
     class AES_AESNI_ALG {
         static_assert(__key_bits == 128 ||
                       __key_bits == 192 ||
-                      __key_bits == 256, "RIJNDAEL_ALG failure! Unsupported __key_bits.");
+                      __key_bits == 256, "AES_AESNI_ALG failure! Unsupported __key_bits.");
     public:
         static constexpr size_t BlockSizeValue = 128;
         static constexpr size_t KeySizeValue = __key_bits / 8;
@@ -104,7 +108,7 @@ namespace accel::Crypto {
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
                 _mm_storeu_si128(
-                    reinterpret_cast<__m128i*>(_Key.AsArrayOf<uint64_t, 2 * (_Nr + 1)>().GetPtr() + (__Index / 2) * 3),
+                    reinterpret_cast<__m128i*>(_Key.template AsArrayOf<uint64_t, 2 * (_Nr + 1)>().GetPtr() + (__Index / 2) * 3),
                     _mm_xor_si128(buffer_l, assist_key));
             } else if constexpr (__Index % 2 == 1 && 2 <= __Index && __Index < (_Nr / 3) * 4 + 1) {
                 buffer_h = _mm_xor_si128(buffer_h, _mm_slli_si128(buffer_h, 4));
@@ -114,7 +118,7 @@ namespace accel::Crypto {
                 buffer_l = _mm_xor_si128(buffer_l, assist_key);
                 buffer_h = _mm_xor_si128(buffer_h, assist_key);
                 _mm_storel_epi64(
-                    reinterpret_cast<__m128i*>(_Key.AsArrayOf<uint64_t, 2 * (_Nr + 1)>().GetPtr() + (__Index / 2) * 3 + 2),
+                    reinterpret_cast<__m128i*>(_Key.template AsArrayOf<uint64_t, 2 * (_Nr + 1)>().GetPtr() + (__Index / 2) * 3 + 2),
                     buffer_h);
             } else {
                 static_assert(__Index < (_Nr / 3) * 4 + 1,
@@ -257,6 +261,7 @@ namespace accel::Crypto {
             return KeySizeValue;
         }
 
+        [[nodiscard]]
         bool SetKey(const void* pUserKey, size_t UserKeySize) noexcept {
             if (UserKeySize != KeySizeValue)
                 return false;
@@ -265,7 +270,7 @@ namespace accel::Crypto {
             return true;
         }
 
-        constexpr size_t EncryptBlock(void* pPlaintext) noexcept {
+        size_t EncryptBlock(void* pPlaintext) noexcept {
             BlockType Text;
             Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(pPlaintext));
             _EncryptLoops(Text, std::make_index_sequence<_Nr + 1>{});
@@ -273,7 +278,7 @@ namespace accel::Crypto {
             return BlockSizeValue;
         }
 
-        constexpr size_t DecryptBlock(void* pCiphertext) noexcept {
+        size_t DecryptBlock(void* pCiphertext) noexcept {
             BlockType Text;
             Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(pCiphertext));
             _DecryptLoops(Text, std::make_index_sequence<_Nr + 1>{});
@@ -289,3 +294,6 @@ namespace accel::Crypto {
 
 }
 
+#else
+#error "Architecture feature not specified."
+#endif
