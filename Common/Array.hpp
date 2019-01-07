@@ -158,6 +158,18 @@ namespace accel {
             return *this;
         }
 
+        SecureArray<__Type, __Length>&
+            operator=(const Array<__Type, __Length>& other) {
+            _ArrayInstance = other;
+            return *this;
+        }
+
+        SecureArray<__Type, __Length>&
+            operator=(Array<__Type, __Length>&& other) noexcept {
+            _ArrayInstance = static_cast<Array<__Type, __Length>&&>(other);
+            return *this;
+        }
+
         //
         //  Begin operator[]
         //
