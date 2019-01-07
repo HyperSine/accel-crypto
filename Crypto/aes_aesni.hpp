@@ -39,9 +39,9 @@ namespace accel::Crypto {
         __forceinline
         void _InverseKeyExpansionLoop() noexcept {
             if constexpr (__Index == 0) {
-                _mm_storeu_si128(&_InvKey[0], _Key[_Nr]);
+                _InvKey[0] = _Key[_Nr];
             } else if constexpr (__Index == _Nr) {
-                _mm_storeu_si128(&_InvKey[_Nr], _Key[0]);
+                _InvKey[_Nr] = _Key[0];
             } else if constexpr (0 < __Index && __Index < _Nr) {
                 _mm_storeu_si128(&_InvKey[__Index],
                                  _mm_aesimc_si128(_Key[_Nr - __Index]));
@@ -65,13 +65,13 @@ namespace accel::Crypto {
         //  KeyExpansion stuff
         //
 
-        template<size_t __Index>
+        template<size_t __Index, int __Rcon>
         __forceinline
         void _KeyExpansion128Loop(__m128i& assist_key, __m128i& buffer) noexcept {
             if constexpr (__Index == 0) {
                 _Key[0] = buffer;
             } else if constexpr (0 < __Index && __Index < 11) {
-                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer, _Rcon[__Index]),
+                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer, __Rcon),
                                                _MM_SHUFFLE(3, 3, 3, 3));
                 buffer = _mm_xor_si128(buffer, _mm_slli_si128(buffer, 4));
                 buffer = _mm_xor_si128(buffer, _mm_slli_si128(buffer, 4));
@@ -88,10 +88,10 @@ namespace accel::Crypto {
         void _KeyExpansion128Loops(__m128i& assist_key, 
                                    __m128i& buffer, 
                                    std::index_sequence<__Indexes...>) noexcept {
-            (_KeyExpansion128Loop<__Indexes>(assist_key, buffer), ...);
+            (_KeyExpansion128Loop<__Indexes, _Rcon[__Indexes]>(assist_key, buffer), ...);
         }
 
-        template<size_t __Index>
+        template<size_t __Index, int __Rcon>
         __forceinline
         void _KeyExpansion192Loop(__m128i& assist_key,
                                   __m128i& buffer_l,
@@ -101,8 +101,7 @@ namespace accel::Crypto {
             } else if constexpr (__Index == 1) {
                 _mm_storel_epi64(&_Key[1], buffer_h);
             } else if constexpr (__Index % 2 == 0 && 2 <= __Index && __Index < (_Nr / 3) * 4 + 1) {
-                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer_h, 
-                                                                         _Rcon[__Index / 2]), 
+                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer_h, __Rcon), 
                                                _MM_SHUFFLE(1, 1, 1, 1));
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
@@ -131,10 +130,10 @@ namespace accel::Crypto {
                                    __m128i& buffer_l,
                                    __m128i& buffer_h,
                                    std::index_sequence<__Indexes...>) noexcept {
-            (_KeyExpansion192Loop<__Indexes>(assist_key, buffer_l, buffer_h), ...);
+            (_KeyExpansion192Loop<__Indexes, _Rcon[__Indexes / 2]>(assist_key, buffer_l, buffer_h), ...);
         }
 
-        template<size_t __Index>
+        template<size_t __Index, int __Rcon>
         __forceinline
         void _KeyExpansion256Loop(__m128i& assist_key, 
                                   __m128i& buffer_l, 
@@ -144,16 +143,14 @@ namespace accel::Crypto {
             } else if constexpr (__Index == 1) {
                 _Key[1] = buffer_h;
             } else if constexpr (__Index % 2 == 0 && 2 <= __Index && __Index < _Nr + 1) {
-                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer_h, 
-                                                                         _Rcon[__Index / 2]), 
+                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer_h, __Rcon),
                                                _MM_SHUFFLE(3, 3, 3, 3));
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
                 buffer_l = _mm_xor_si128(buffer_l, _mm_slli_si128(buffer_l, 4));
                 _Key[__Index] = buffer_l = _mm_xor_si128(buffer_l, assist_key);
             } else if constexpr (__Index % 2 == 1 && 2 <= __Index && __Index < _Nr + 1) {
-                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer_l,
-                                                                         _Rcon[__Index / 2]),
+                assist_key = _mm_shuffle_epi32(_mm_aeskeygenassist_si128(buffer_l, __Rcon),
                                                _MM_SHUFFLE(2, 2, 2, 2));
                 buffer_h = _mm_xor_si128(buffer_h, _mm_slli_si128(buffer_h, 4));
                 buffer_h = _mm_xor_si128(buffer_h, _mm_slli_si128(buffer_h, 4));
@@ -171,7 +168,7 @@ namespace accel::Crypto {
                                    __m128i& buffer_l,
                                    __m128i& buffer_h,
                                    std::index_sequence<__Indexes...>) noexcept {
-            (_KeyExpansion256Loop<__Indexes>(assist_key, buffer_l, buffer_h), ...);
+            (_KeyExpansion256Loop<__Indexes, _Rcon[__Indexes / 2]>(assist_key, buffer_l, buffer_h), ...);
         }
 
         void _KeyExpansion(const void* pUserKey) noexcept {
