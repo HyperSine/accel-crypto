@@ -6,7 +6,7 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
 
 ## Supported Symmetric Algorithm
 
-* TODO
+* AES (AESNI implement)
 
 ## Supported Hash Algorithm
 
