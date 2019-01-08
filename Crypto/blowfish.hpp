@@ -8,17 +8,14 @@ namespace accel::Crypto {
     protected:
         static const Array<uint32_t, 18> OriginalPBox;
         static const Array<uint32_t, 256> OriginalSBox[4];
-        static_assert(sizeof(Array<uint32_t, 256>) == sizeof(uint32_t) * 256);
     };
 
-    template<bool __LittleEndian = false>
-    class BLOWFISH_ALG : public _BLOWFISH_CONSTANT {
-
+    template<bool __LittleEndian>
+    class _BLOWFISH_ALG_IMPL : public _BLOWFISH_CONSTANT {
     public:
         static constexpr size_t BlockSizeValue = 8;
         static constexpr size_t MinKeySizeValue = 1;
         static constexpr size_t MaxKeySizeValue = 56;
-
     private:
 
         union BlockType {
@@ -30,8 +27,7 @@ namespace accel::Crypto {
         static_assert(sizeof(BlockType) == BlockSizeValue);
         
         SecureArray<uint32_t, 18> _SubKey;
-        SecureArray<Array<uint32_t, 256>, 4> _SubBox;
-        static_assert(sizeof(Array<uint32_t, 256>) == sizeof(uint32_t) * 256);
+        SecureArray<uint32_t, 256> _SubBox[4];
 
         template<char __LR>
         __forceinline
@@ -51,6 +47,7 @@ namespace accel::Crypto {
             } else {
                 static_assert(__LR == 'L' || __LR == 'R', 
                               "_F_transform failure! Invalid __LR.");
+                __unreachable();
             }
 
             return result;
@@ -311,5 +308,6 @@ namespace accel::Crypto {
         }
     };
 
+    using BLOWFISH_ALG = _BLOWFISH_ALG_IMPL<false>;
 }
 
