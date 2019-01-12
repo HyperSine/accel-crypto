@@ -51,7 +51,7 @@ namespace accel::Crypto {
 
                 sum -= _Delta;
 
-                RefBlock.dwords[0] +=
+                RefBlock.dwords[0] -=
                     (((RefBlock.dwords[1] << 4) ^ (RefBlock.dwords[1] >> 5)) + RefBlock.dwords[1]) ^
                     (sum + _Key[sum % _Key.Length()]);
             }
@@ -85,20 +85,40 @@ namespace accel::Crypto {
                 return false;
             } else {
                 memcpy(_Key.GetPtr(), pUserKey, KeySizeValue);
+                _Key[0] = ByteSwap<uint32_t>(_Key[0]);
+                _Key[1] = ByteSwap<uint32_t>(_Key[1]);
+                _Key[2] = ByteSwap<uint32_t>(_Key[2]);
+                _Key[3] = ByteSwap<uint32_t>(_Key[3]);
                 return true;
             }
         }
 
         size_t EncryptBlock(void* pPlaintext) const noexcept {
             BlockType Text = *reinterpret_cast<BlockType*>(pPlaintext);
+
+            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
+            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+
             _EncryptProcess(Text);
+
+            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
+            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+
             *reinterpret_cast<BlockType*>(pPlaintext) = Text;
             return BlockSizeValue;
         }
 
         size_t DecryptBlock(void* pCiphertext) const noexcept {
             BlockType Text = *reinterpret_cast<BlockType*>(pCiphertext);
+
+            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
+            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+
             _DecryptProcess(Text);
+
+            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
+            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+
             *reinterpret_cast<BlockType*>(pCiphertext) = Text;
             return BlockSizeValue;
         }
