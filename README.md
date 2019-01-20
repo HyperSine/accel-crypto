@@ -16,6 +16,8 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
 
 * CAST-128, CAST-256
 
+* RC5
+
 * Rijndael
   
   KeyBits = 128, 160, 192, 224, 256
