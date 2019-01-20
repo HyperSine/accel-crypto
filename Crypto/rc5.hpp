@@ -33,18 +33,20 @@ namespace accel::Crypto {
         };
     }
 
-    template<size_t __WordBits, size_t __Rounds>
+    template<size_t __WordBits, size_t __Rounds, size_t __BytesOfKey>
     class RC5_ALG : public Internal::RC5_CONSTANT<__WordBits> {
         static_assert(__WordBits == 16 ||
                       __WordBits == 32 ||
                       __WordBits == 64, "RC5_ALG failure! Invalid __WordBits.");
+        static_assert(__BytesOfKey < 256, "RC5_ALG failure! Invalid __BytesOfKey.");
     public:
         static constexpr size_t BlockSizeValue = 2 * __WordBits / 8;
-        static constexpr size_t MinKeySizeValue = 0;
-        static constexpr size_t MaxKeySizeValue = 255;
+        static constexpr size_t KeySizeValue = __BytesOfKey;
     private:
 
         using WordType = typename Internal::RC5_CONSTANT<__WordBits>::WordType;
+        static_assert(sizeof(WordType) == __WordBits / 8);
+
         static constexpr WordType _P = Internal::RC5_CONSTANT<__WordBits>::_P;
         static constexpr WordType _Q = Internal::RC5_CONSTANT<__WordBits>::_Q;
 
@@ -63,23 +65,23 @@ namespace accel::Crypto {
 
         SecureArray<WordType, 2 * (__Rounds + 1)> _Key;
 
-        void _KeyExpansion(const uint8_t* PtrToUserKey, size_t UserKeySize) noexcept {
+        __forceinline
+        void _KeyExpansion(const uint8_t* PtrToUserKey) noexcept {
             SecureArray<WordType, 256 / sizeof(WordType)> L;
-            size_t c;
-
-            c = (UserKeySize + (__WordBits / 8 - 1)) / (__WordBits / 8);
-            if (c == 0) c = 1;
+            constexpr size_t t = 2 * (__Rounds + 1);
+            constexpr size_t c = __BytesOfKey ? (__BytesOfKey + (sizeof(WordType) - 1)) / sizeof(WordType) : 1;
+            constexpr size_t fin = 3 * (t > c ? t : c);
 
             memset(L.GetPtr(), 0, L.Size());
-            memcpy(L.GetPtr(), PtrToUserKey, UserKeySize);
+            memcpy(L.GetPtr(), PtrToUserKey, KeySizeValue);
 
             _Key[0] = _P;
-            for (size_t i = 1; i < _Key.Length(); ++i)
+            for (size_t i = 1; i < t; ++i)
                 _Key[i] = _Key[i - 1] + _Q;
 
             size_t ii = 0, jj = 0;
             WordType A = 0, B = 0;
-            for (size_t i = 0, fin = 3 * (_Key.Length() > c ? _Key.Length() : c); i < fin; ++i) {
+            for (size_t i = 0; i < fin; ++i) {
                 _Key[ii] = RotateShiftLeft<WordType>(_Key[ii] + A + B, 3);
                 A = _Key[ii];
 
@@ -127,19 +129,14 @@ namespace accel::Crypto {
             return BlockSizeValue;
         }
 
-        constexpr size_t MinKeySize() const noexcept {
-            return MinKeySizeValue;
-        }
-
-        constexpr size_t MaxKeySize() const noexcept {
-            return MaxKeySizeValue;
+        constexpr size_t KeySize() const noexcept {
+            return KeySizeValue;
         }
 
         [[nodiscard]]
         bool SetKey(const void* PtrToUserKey, size_t UserKeySize) noexcept {
-            if (MinKeySizeValue <= UserKeySize && UserKeySize <= MaxKeySizeValue) {
-                _KeyExpansion(reinterpret_cast<const uint8_t*>(PtrToUserKey), 
-                              UserKeySize);
+            if (UserKeySize == KeySizeValue) {
+                _KeyExpansion(reinterpret_cast<const uint8_t*>(PtrToUserKey));
                 return true;
             } else {
                 return false;
