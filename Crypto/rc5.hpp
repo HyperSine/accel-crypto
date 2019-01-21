@@ -1,6 +1,7 @@
 #pragma once
 #include "../Common/Array.hpp"
 #include "../Common/Intrinsic.hpp"
+#include <memory.h>
 
 namespace accel::Crypto {
 
