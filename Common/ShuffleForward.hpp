@@ -3,56 +3,60 @@
 
 namespace accel {
 
-    // deduct
-    template<size_t __FirstTypeIndex,
-             size_t __TargetIndex,
-             typename __FirstType,
-             typename... __LeftTypes>
-    struct _ForwardByIndex_IMPL {
+    namespace Internal {
 
-        // require __FirstTypeIndex < __TargetIndex
-        // otherwise, it is not a valid usage
-        static_assert(__FirstTypeIndex < __TargetIndex,
-                      "_ForwardByIndex_S failure! __FirstTypeIndex must be less than __TargetIndex");
+        // Deducting
+        template<size_t __FirstIndex,
+                 size_t __TargetIndex,
+                 typename __FirstType,
+                 typename... __LeftTypes>
+        struct ForwardByIndex {
 
-        // require __TargetIndex - __FirstTypeIndex <= sizeof...(__LeftTypes)
-        // otherwise, __TargetIndex must be out of range.
-        static_assert(__TargetIndex - __FirstTypeIndex <= sizeof...(__LeftTypes),
-                      "_ForwardByIndex_S failure! Out of range.");
+            // require __FirstTypeIndex < __TargetIndex
+            // otherwise, it is not a valid usage
+            static_assert(__FirstIndex < __TargetIndex,
+                          "ForwardByIndex failure! __FirstIndex must be less than __TargetIndex.");
 
-        // when __FirstTypeIndex != __TargetIndex
-        // keep on searching
-        static decltype(auto) impl(__FirstType&& FirstArg, __LeftTypes&&... LeftArgs) {
-            return _ForwardByIndex_IMPL<__FirstTypeIndex + 1,
-                                        __TargetIndex,
-                                        __LeftTypes...>::impl(std::forward<__LeftTypes>(LeftArgs)...);
-        }
-    };
+            // require __TargetIndex - __FirstTypeIndex <= sizeof...(__LeftTypes)
+            // otherwise, __TargetIndex must be out of range.
+            static_assert(__TargetIndex - __FirstIndex <= sizeof...(__LeftTypes),
+                          "ForwardByIndex failure! Out of range.");
 
-    // resolve
-    template<size_t __TargetIndex,
-             typename __FirstType,
-             typename... __LeftTypes>
-    struct _ForwardByIndex_IMPL<__TargetIndex,
-                                __TargetIndex,
-                                __FirstType,
-                                __LeftTypes...> {
+            // when __FirstTypeIndex != __TargetIndex
+            // keep on searching
+            static inline decltype(auto) Impl(__FirstType&& FirstArg, __LeftTypes&&... LeftArgs) {
+                return ForwardByIndex<__FirstIndex + 1,
+                                      __TargetIndex,
+                                      __LeftTypes...>::Impl(std::forward<__LeftTypes>(LeftArgs)...);
+            }
+        };
 
-        // when __FirstTypeIndex == __TargetIndex
-        // return the argument found
-        static decltype(auto) impl(__FirstType&& FirstArg, __LeftTypes&&... LeftArgs) {
-            return std::forward<__FirstType>(FirstArg);
-        }
+        // Resolve
+        template<size_t __TargetIndex,
+                 typename __FirstType,
+                 typename... __LeftTypes>
+        struct ForwardByIndex<__TargetIndex,
+                              __TargetIndex,
+                              __FirstType,
+                              __LeftTypes...> {
 
-    };
+            // when __FirstIndex == __TargetIndex
+            // return the argument found
+            static inline decltype(auto) Impl(__FirstType&& FirstArg, __LeftTypes&&... LeftArgs) {
+                return std::forward<__FirstType>(FirstArg);
+            }
+
+        };
+
+    }
 
     template<size_t __Index, typename... __Types>
     decltype(auto) ForwardByIndex(__Types&&... Args) {
-        return _ForwardByIndex_IMPL<0, __Index, __Types...>::impl(std::forward<__Types>(Args)...);
+        return Internal::ForwardByIndex<0, __Index, __Types...>::Impl(std::forward<__Types>(Args)...);
     }
 
     template<size_t... __Indexes, typename __FunctionType, typename... __Types>
-    decltype(auto) ShuffleForward(__FunctionType& F, __Types&&... Args) {
+    decltype(auto) ShuffleForward(__FunctionType&& F, __Types&&... Args) {
         return F(ForwardByIndex<__Indexes>(Args...)...);
     }
 }
