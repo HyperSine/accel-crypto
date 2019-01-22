@@ -1,4 +1,5 @@
 #pragma once
+#include "../Common/Config.hpp"
 #include "../Common/Array.hpp"
 #include <memory.h>
 
@@ -23,7 +24,7 @@ namespace accel::Crypto {
 
         SecureArray<uint32_t, 4> _Key;
 
-        __forceinline
+        ACCEL_FORCEINLINE
         uint32_t _MX(uint32_t& e, 
                      uint32_t& y, 
                      uint32_t& z, 
@@ -32,6 +33,7 @@ namespace accel::Crypto {
             return ((z >> 5 ^ y << 2) + (y >> 3 ^ z << 4)) ^ ((sum ^ y) + (_Key[(p % 4) ^ e] ^ z));
         }
 
+        ACCEL_FORCEINLINE
         void _EncryptProcess(BlockType& RefBlock) const noexcept {
             uint32_t y, z, sum = 0;
             unsigned p, e;
@@ -48,6 +50,7 @@ namespace accel::Crypto {
             }
         }
 
+        ACCEL_FORCEINLINE
         void _DecryptProcess(BlockType& RefBlock) const noexcept {
 #if defined(_MSC_VER)
 #pragma warning(push)

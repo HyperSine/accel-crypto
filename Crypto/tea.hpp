@@ -1,4 +1,5 @@
 #pragma once
+#include "../Common/Config.hpp"
 #include "../Common/Array.hpp"
 #include <memory.h>
 
@@ -20,7 +21,7 @@ namespace accel::Crypto {
 
         SecureArray<uint32_t, 4> _Key;
 
-        __forceinline
+        ACCEL_FORCEINLINE
         void _EncryptProcess(BlockType& RefBlock) const noexcept {
             uint32_t sum = 0;
 
@@ -41,7 +42,7 @@ namespace accel::Crypto {
             sum = 0;
         }
 
-        __forceinline
+        ACCEL_FORCEINLINE
         void _DecryptProcess(BlockType& RefBlock) const noexcept {
             uint32_t sum = _Delta << 5;
 
