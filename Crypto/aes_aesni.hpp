@@ -1,4 +1,5 @@
 #pragma once
+#include "../Common/Config.hpp"
 #include "../Common/Array.hpp"
 #include "../Common/Intrinsic.hpp"
 
@@ -14,7 +15,7 @@ namespace accel::Crypto {
                       __key_bits == 192 ||
                       __key_bits == 256, "AES_AESNI_ALG failure! Unsupported __key_bits.");
     public:
-        static constexpr size_t BlockSizeValue = 128;
+        static constexpr size_t BlockSizeValue = 16;
         static constexpr size_t KeySizeValue = __key_bits / 8;
     private:
         static constexpr size_t _Nb = 4;
@@ -26,47 +27,28 @@ namespace accel::Crypto {
         };
 
         using BlockType = __m128i;
-        using RoundKeyType = __m128i;
+        static_assert(sizeof(BlockType) == BlockSizeValue);
         
-        SecureArray<RoundKeyType, _Nr + 1> _Key;
-        SecureArray<RoundKeyType, _Nr + 1> _InvKey;
+        SecureArray<__m128i, _Nr + 1> _Key;
+        SecureArray<__m128i, _Nr + 1> _InvKey;
 
         //
-        //  InverseKeyExpansion stuff
+        //  Calculate `_InvKey`, which will be used in decryption, based on `_Key`.
+        //  This function is for internal use only.
         //
-
-        template<size_t __Index>
-        __forceinline
-        void _InverseKeyExpansionLoop() noexcept {
-            if constexpr (__Index == 0) {
-                _InvKey[0] = _Key[_Nr];
-            } else if constexpr (__Index == _Nr) {
-                _InvKey[_Nr] = _Key[0];
-            } else if constexpr (0 < __Index && __Index < _Nr) {
-                _mm_storeu_si128(&_InvKey[__Index],
-                                 _mm_aesimc_si128(_Key[_Nr - __Index]));
-            } else {
-                static_assert(__Index < _Nr + 1, 
-                              "_InverseKeyExpansionLoop failure! Out of range.");
-            }
-        }
-
-        template<size_t... __Indexes>
-        __forceinline
-        void _InverseKeyExpansionLoops(std::index_sequence<__Indexes...>) noexcept {
-            (_InverseKeyExpansionLoop<__Indexes>(), ...);
-        }
-
+        ACCEL_FORCEINLINE
         void _InverseKeyExpansion() noexcept {
-            _InverseKeyExpansionLoops(std::make_index_sequence<_Nr + 1>{});
+            _InvKey[0] = _Key[_Nr];
+            for (size_t i = 1; i < _Nr; ++i)
+                _InvKey[i] = _mm_aesimc_si128(_Key[_Nr - i]);
+            _InvKey[_Nr] = _Key[0];
         }
 
         //
-        //  KeyExpansion stuff
+        //  Key expansion helper
         //
-
         template<size_t __Index, int __Rcon>
-        __forceinline
+        ACCEL_FORCEINLINE
         void _KeyExpansion128Loop(__m128i& assist_key, __m128i& buffer) noexcept {
             if constexpr (__Index == 0) {
                 _Key[0] = buffer;
@@ -84,7 +66,7 @@ namespace accel::Crypto {
         }
 
         template<size_t... __Indexes>
-        __forceinline
+        ACCEL_FORCEINLINE
         void _KeyExpansion128Loops(__m128i& assist_key, 
                                    __m128i& buffer, 
                                    std::index_sequence<__Indexes...>) noexcept {
@@ -92,7 +74,7 @@ namespace accel::Crypto {
         }
 
         template<size_t __Index, int __Rcon>
-        __forceinline
+        ACCEL_FORCEINLINE
         void _KeyExpansion192Loop(__m128i& assist_key,
                                   __m128i& buffer_l,
                                   __m128i& buffer_h) noexcept {
@@ -134,7 +116,7 @@ namespace accel::Crypto {
         }
 
         template<size_t __Index, int __Rcon>
-        __forceinline
+        ACCEL_FORCEINLINE
         void _KeyExpansion256Loop(__m128i& assist_key, 
                                   __m128i& buffer_l, 
                                   __m128i& buffer_h) noexcept {
@@ -163,7 +145,7 @@ namespace accel::Crypto {
         }
 
         template<size_t... __Indexes>
-        __forceinline
+        ACCEL_FORCEINLINE
         void _KeyExpansion256Loops(__m128i& assist_key,
                                    __m128i& buffer_l,
                                    __m128i& buffer_h,
@@ -171,11 +153,12 @@ namespace accel::Crypto {
             (_KeyExpansion256Loop<__Indexes, _Rcon[__Indexes / 2]>(assist_key, buffer_l, buffer_h), ...);
         }
 
-        void _KeyExpansion(const void* pUserKey) noexcept {
+        ACCEL_FORCEINLINE
+        void _KeyExpansion(const __m128i* PtrToUserKey) noexcept {
             if constexpr (__key_bits == 128) {
                 __m128i assist_key;
                 __m128i buffer;
-                buffer = _mm_loadu_si128(reinterpret_cast<const __m128i*>(pUserKey));
+                buffer = _mm_loadu_si128(PtrToUserKey);
                 _KeyExpansion128Loops(assist_key, 
                                       buffer, 
                                       std::make_index_sequence<_Nr + 1>{});
@@ -185,8 +168,8 @@ namespace accel::Crypto {
                 __m128i assist_key;
                 __m128i buffer_l;
                 __m128i buffer_h;
-                buffer_l = _mm_loadu_si128(reinterpret_cast<const __m128i*>(pUserKey));
-                buffer_h = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(pUserKey) + 1);
+                buffer_l = _mm_loadu_si128(PtrToUserKey);
+                buffer_h = _mm_loadl_epi64(PtrToUserKey + 1);
                 _KeyExpansion192Loops(assist_key, 
                                       buffer_l, 
                                       buffer_h, 
@@ -197,55 +180,29 @@ namespace accel::Crypto {
                 __m128i assist_key;
                 __m128i buffer_l;
                 __m128i buffer_h;
-                buffer_l = _mm_loadu_si128(reinterpret_cast<const __m128i*>(pUserKey));
-                buffer_h = _mm_loadu_si128(reinterpret_cast<const __m128i*>(pUserKey) + 1);
+                buffer_l = _mm_loadu_si128(PtrToUserKey);
+                buffer_h = _mm_loadu_si128(PtrToUserKey + 1);
                 _KeyExpansion256Loops(assist_key, 
                                       buffer_l, 
                                       buffer_h, 
                                       std::make_index_sequence<_Nr + 1>{});
             }
         }
-
-        template<size_t __Index>
-        __forceinline
-        void _EncryptLoop(BlockType& RefText) noexcept {
-            if constexpr (__Index == 0) {
-                RefText = _mm_xor_si128(RefText, _Key[0]);
-            } else if constexpr (__Index == _Nr) {
-                RefText = _mm_aesenclast_si128(RefText, _Key[_Nr]);
-            } else if constexpr (0 < __Index && __Index < _Nr) {
-                RefText = _mm_aesenc_si128(RefText, _Key[__Index]);
-            } else {
-                static_assert(__Index < _Nr + 1,
-                              "_EncryptLoop failure! Out of range.");
-            }
+        
+        ACCEL_FORCEINLINE
+        void _EncryptProcess(BlockType& RefBlock) noexcept {
+            RefBlock = _mm_xor_si128(RefBlock, _Key[0]);
+            for (size_t i = 1; i < _Nr; ++i)
+                RefBlock = _mm_aesenc_si128(RefBlock, _Key[i]);
+            RefBlock = _mm_aesenclast_si128(RefBlock, _Key[_Nr]);
         }
-
-        template<size_t __Index>
-        __forceinline
-            void _DecryptLoop(BlockType& RefText) noexcept {
-            if constexpr (__Index == 0) {
-                RefText = _mm_xor_si128(RefText, _InvKey[0]);
-            } else if constexpr (__Index == _Nr) {
-                RefText = _mm_aesdeclast_si128(RefText, _InvKey[_Nr]);
-            } else if constexpr (0 < __Index && __Index < _Nr) {
-                RefText = _mm_aesdec_si128(RefText, _InvKey[__Index]);
-            } else {
-                static_assert(__Index < _Nr + 1,
-                              "_DecryptLoop failure! Out of range.");
-            }
-        }
-
-        template<size_t... __Indexes>
-        __forceinline
-        void _EncryptLoops(BlockType& RefText, std::index_sequence<__Indexes...>) noexcept {
-            (_EncryptLoop<__Indexes>(RefText), ...);
-        }
-
-        template<size_t... __Indexes>
-        __forceinline
-        void _DecryptLoops(BlockType& RefText, std::index_sequence<__Indexes...>) noexcept {
-            (_DecryptLoop<__Indexes>(RefText), ...);
+        
+        ACCEL_FORCEINLINE
+        void _DecryptProcess(BlockType& RefBlock) noexcept {
+            RefBlock = _mm_xor_si128(RefBlock, _InvKey[0]);
+            for (size_t i = 1; i < _Nr; ++i) 
+                RefBlock = _mm_aesdec_si128(RefBlock, _InvKey[i]);
+            RefBlock = _mm_aesdeclast_si128(RefBlock, _InvKey[_Nr]);
         }
 
     public:
@@ -259,27 +216,27 @@ namespace accel::Crypto {
         }
 
         [[nodiscard]]
-        bool SetKey(const void* pUserKey, size_t UserKeySize) noexcept {
+        bool SetKey(const void* PtrToUserKey, size_t UserKeySize) noexcept {
             if (UserKeySize != KeySizeValue)
                 return false;
-            _KeyExpansion(pUserKey);
+
+            _KeyExpansion(reinterpret_cast<const __m128i*>(PtrToUserKey));
             _InverseKeyExpansion();
+
             return true;
         }
 
-        size_t EncryptBlock(void* pPlaintext) noexcept {
-            BlockType Text;
-            Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(pPlaintext));
-            _EncryptLoops(Text, std::make_index_sequence<_Nr + 1>{});
-            _mm_storeu_si128(reinterpret_cast<BlockType*>(pPlaintext), Text);
+        size_t EncryptBlock(void* PtrToPlaintext) noexcept {
+            BlockType Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(PtrToPlaintext));
+            _EncryptProcess(Text);
+            _mm_storeu_si128(reinterpret_cast<BlockType*>(PtrToPlaintext), Text);
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* pCiphertext) noexcept {
-            BlockType Text;
-            Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(pCiphertext));
-            _DecryptLoops(Text, std::make_index_sequence<_Nr + 1>{});
-            _mm_storeu_si128(reinterpret_cast<BlockType*>(pCiphertext), Text);
+        size_t DecryptBlock(void* PtrToCiphertext) noexcept {
+            BlockType Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(PtrToCiphertext));
+            _DecryptProcess(Text);
+            _mm_storeu_si128(reinterpret_cast<BlockType*>(PtrToCiphertext), Text);
             return BlockSizeValue;
         }
 
@@ -290,7 +247,4 @@ namespace accel::Crypto {
     };
 
 }
-
-#else
-#error "Architecture feature not specified."
 #endif
