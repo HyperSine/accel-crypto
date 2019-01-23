@@ -8,12 +8,11 @@ namespace accel {
 
     template<typename __Type, size_t __Length>
     class Array {
-        static_assert(std::is_pod<__Type>::value, "__Type must be a POD type.");
+        static_assert(std::is_pod<__Type>::value,
+                      "__Type must be a POD type.");
     public:
         using ElementType = __Type;
-
-        using CArrayRef = __Type(&)[__Length];
-        using CConstArrayRef = const __Type(&)[__Length];
+        using CArrayType = __Type[__Length];
     private:
         ElementType _Elements[__Length];
     public:
@@ -52,11 +51,11 @@ namespace accel {
             return _Elements[i];
         }
 
-        operator CArrayRef() noexcept {
+        operator CArrayType&() noexcept {
             return _Elements;
         }
 
-        operator CConstArrayRef() const noexcept {
+        operator const CArrayType&() const noexcept {
             return _Elements;
         }
 
@@ -132,8 +131,7 @@ namespace accel {
         Array<__Type, __Length> _ArrayInstance;
     public:
         using ElementType = typename Array<__Type, __Length>::ElementType;
-        using CArrayRef = typename Array<__Type, __Length>::CArrayRef;
-        using CConstArrayRef = typename Array<__Type, __Length>::CConstArrayRef;
+        using CArrayType = typename Array<__Type, __Length>::CArrayType;
 
         static constexpr size_t LengthValue = Array<__Type, __Length>::LengthValue;
         static constexpr size_t SizeValue = Array<__Type, __Length>::SizeValue;
@@ -195,11 +193,11 @@ namespace accel {
             return _ArrayInstance[i];
         }
 
-        operator CArrayRef() noexcept {
+        operator CArrayType&() noexcept {
             return _ArrayInstance;
         }
 
-        operator CConstArrayRef() const noexcept {
+        operator const CArrayType&() const noexcept {
             return _ArrayInstance;
         }
 
