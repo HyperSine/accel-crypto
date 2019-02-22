@@ -1,6 +1,8 @@
 #pragma once
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 
 namespace accel::Crypto {
@@ -71,17 +73,18 @@ namespace accel::Crypto {
         };
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureArray<WordType, 2 * (__Rounds + 2)> _Key;
+        SecureWiper<Array<WordType, 2 * (__Rounds + 2)>> _KeyWiper;
+        Array<WordType, 2 * (__Rounds + 2)> _Key;
 
-        __forceinline
+        ACCEL_FORCEINLINE
         void _KeyExpansion(const uint8_t* PtrToUserKey) noexcept {
-            SecureArray<WordType, 256 / sizeof(WordType)> L;
+            Array<WordType, 256 / sizeof(WordType)> L;
             constexpr size_t t = 2 * (__Rounds + 2);
             constexpr size_t c = __BytesOfKey ? (__BytesOfKey + (sizeof(WordType) - 1)) / sizeof(WordType) : 1;
             constexpr size_t fin = 3 * (t > c ? t : c);
 
-            memset(L.GetPtr(), 0, L.Size());
-            memcpy(L.GetPtr(), PtrToUserKey, KeySizeValue);
+            memset(L.CArray(), 0, L.Size());
+            memcpy(L.CArray(), PtrToUserKey, KeySizeValue);
 
             _Key[0] = _P;
             for (size_t i = 1; i < t; ++i)
@@ -99,8 +102,11 @@ namespace accel::Crypto {
                 ii = (ii + 1) % t;
                 jj = (jj + 1) % c;
             }
+
+            L.SecureZero();
         }
 
+        ACCEL_FORCEINLINE
         void _EncryptProcess(BlockType& RefBlock) const noexcept {
             auto& A = RefBlock[0];
             auto& B = RefBlock[1];
@@ -128,6 +134,7 @@ namespace accel::Crypto {
             C += _Key[2 * __Rounds + 3];
         }
 
+        ACCEL_FORCEINLINE
         void _DecryptProcess(BlockType& RefBlock) const noexcept {
             auto& A = RefBlock[0];
             auto& B = RefBlock[1];
@@ -153,7 +160,11 @@ namespace accel::Crypto {
             D -= _Key[1];
             B -= _Key[0];
         }
+
     public:
+
+        RC6_ALG() noexcept :
+            _KeyWiper(_Key) {}
 
         constexpr size_t BlockSize() const noexcept {
             return BlockSizeValue;

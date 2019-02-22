@@ -1,6 +1,8 @@
 #pragma once
-#include "../Common/Config.hpp"
-#include "../Common/Array.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 
 namespace accel::Crypto {
@@ -19,7 +21,8 @@ namespace accel::Crypto {
         };
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureArray<uint32_t, 4> _Key;
+        SecureWiper<Array<uint32_t, 4>> _KeyWiper;
+        Array<uint32_t, 4> _Key;
 
         ACCEL_FORCEINLINE
         void _EncryptProcess(BlockType& RefBlock) const noexcept {
@@ -65,6 +68,9 @@ namespace accel::Crypto {
 
     public:
 
+        TEA_ALG() noexcept :
+            _KeyWiper(_Key) {}
+
         constexpr size_t BlockSize() const noexcept {
             return BlockSizeValue;
         }
@@ -78,7 +84,7 @@ namespace accel::Crypto {
             if (UserKeySize != KeySizeValue) {
                 return false;
             } else {
-                memcpy(_Key.GetPtr(), pUserKey, KeySizeValue);
+                memcpy(_Key.CArray(), pUserKey, KeySizeValue);
                 _Key[0] = ByteSwap<uint32_t>(_Key[0]);
                 _Key[1] = ByteSwap<uint32_t>(_Key[1]);
                 _Key[2] = ByteSwap<uint32_t>(_Key[2]);

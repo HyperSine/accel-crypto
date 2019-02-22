@@ -1,7 +1,8 @@
 #pragma once
-#include "../Common/Config.hpp"
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 
 namespace accel::Crypto {
@@ -588,7 +589,7 @@ namespace accel::Crypto {
         static_assert(__KeyBits == 128 || 
                       __KeyBits == 192 || 
                       __KeyBits == 256,
-                      "_TWOFISH_ALG_IMPL failure! Invalid __KeyBits.");
+                      "TWOFISH_ALG failure! Invalid __KeyBits.");
     public:
         static constexpr size_t BlockSizeValue = 16;
         static constexpr size_t KeySizeValue = __KeyBits / 8;
@@ -614,8 +615,10 @@ namespace accel::Crypto {
         };
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureArray<uint32_t, 40> _ExpandedKey;
-        SecureArray<uint8_t, __KeyBits / 16> _S;
+        SecureWiper<Array<uint32_t, 40>> _ExpandedKeyWiper;
+        SecureWiper<Array<uint8_t, __KeyBits / 16>> _SWiper;
+        Array<uint32_t, 40> _ExpandedKey;
+        Array<uint8_t, __KeyBits / 16> _S;
 
         template<typename __ByteType>
         ACCEL_FORCEINLINE
@@ -655,6 +658,7 @@ namespace accel::Crypto {
             return z.dword;
         }
 
+        ACCEL_FORCEINLINE
         void _KeyExpansion(const void* pUserKey) noexcept {
             union UserKeyType {
                 uint8_t bytes[KeySizeValue];
@@ -683,7 +687,7 @@ namespace accel::Crypto {
                 _S[3] = 0;
             }
 
-            memset(_S, 0, _S.Size());
+            memset(_S.CArray(), 0, _S.Size());
 
             for (size_t i = 0; i < KeySizeValue; ++i) {
                 size_t I = __KeyBits / 16 - 4 - (i / 8) * 4;
@@ -703,6 +707,7 @@ namespace accel::Crypto {
             }
         }
 
+        ACCEL_FORCEINLINE
         void _EncryptProcess(BlockType& RefBlock) const noexcept {
             RefBlock.dwords[0] ^= _ExpandedKey[0];
             RefBlock.dwords[1] ^= _ExpandedKey[1];
@@ -741,6 +746,7 @@ namespace accel::Crypto {
             RefBlock.dwords[3] ^= _ExpandedKey[7];
         }
 
+        ACCEL_FORCEINLINE
         void _DecryptProcess(BlockType& RefBlock) const noexcept {
             RefBlock.dwords[0] ^= _ExpandedKey[4];
             RefBlock.dwords[1] ^= _ExpandedKey[5];
@@ -778,6 +784,10 @@ namespace accel::Crypto {
         }
 
     public:
+
+        TWOFISH_ALG() noexcept :
+            _ExpandedKeyWiper(_ExpandedKey),
+            _SWiper(_S) {}
 
         constexpr size_t BlockSize() const noexcept {
             return BlockSizeValue;

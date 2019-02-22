@@ -1,6 +1,7 @@
 #pragma once
-#include "../Common/Config.hpp"
-#include "../Common/Array.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
 
 namespace accel::Crypto {
 
@@ -10,8 +11,10 @@ namespace accel::Crypto {
         static constexpr size_t MaxKeySizeValue = 256;
     private:
 
-        SecureArray<uint8_t, 256> _InitSBox;
-        mutable SecureArray<uint8_t, 256> _SBox;
+        SecureWiper<Array<uint8_t, 256>> _InitSBoxWiper;
+        SecureWiper<Array<uint8_t, 256>> _SBoxWiper;
+        Array<uint8_t, 256> _InitSBox;
+        mutable Array<uint8_t, 256> _SBox;
 
         ACCEL_FORCEINLINE
         void _KeyExpansion() noexcept {
@@ -39,6 +42,10 @@ namespace accel::Crypto {
         }
 
     public:
+
+        RC4_ALG() noexcept :
+            _InitSBoxWiper(_InitSBox),
+            _SBoxWiper(_SBox) {}
 
         constexpr size_t MinKeySize() const noexcept {
             return MinKeySizeValue;

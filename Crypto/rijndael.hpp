@@ -1,7 +1,8 @@
 #pragma once
-#include "../Common/Config.hpp"
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 
 namespace accel::Crypto {
@@ -245,8 +246,10 @@ namespace accel::Crypto {
         using BlockType = VectorType;
         using RoundKeyType = VectorType;
 
-        SecureArray<RoundKeyType, _Nr + 1> _Key;
-        SecureArray<RoundKeyType, _Nr + 1> _InvKey;
+        SecureWiper<Array<RoundKeyType, _Nr + 1>> _KeyWiper;
+        SecureWiper<Array<RoundKeyType, _Nr + 1>> _InvKeyWiper;
+        Array<RoundKeyType, _Nr + 1> _Key;
+        Array<RoundKeyType, _Nr + 1> _InvKey;
 
         ACCEL_FORCEINLINE
         static void _ByteSub(BlockType& RefBlock) noexcept {
@@ -559,7 +562,7 @@ namespace accel::Crypto {
         ACCEL_FORCEINLINE
         void _KeyExpansion(const void* pUserKey) noexcept {
             auto& KeyInstance = _Key.template AsArrayOf<uint32_t, _Nb * (_Nr + 1)>();
-            memcpy(KeyInstance.GetPtr(), pUserKey, KeySizeValue);
+            memcpy(KeyInstance.CArray(), pUserKey, KeySizeValue);
             for (size_t i = _Nk; i < KeyInstance.Length(); ++i) {
                 union {
                     uint8_t byte[4];
@@ -585,6 +588,10 @@ namespace accel::Crypto {
         }
 
     public:
+
+        RIJNDAEL_ALG() noexcept :
+            _KeyWiper(_Key),
+            _InvKeyWiper(_InvKey) {}
 
         constexpr size_t BlockSize() const noexcept {
             return BlockSizeValue;

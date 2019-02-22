@@ -1,7 +1,8 @@
 #pragma once
-#include "../Common/Config.hpp"
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 
 namespace accel::Crypto {
@@ -96,226 +97,232 @@ namespace accel::Crypto {
             };  // end of OriginalSBox
         };  // end of class BLOWFISH_CONSTANT
 
+        template<bool __LittleEndian>
+        class BLOWFISH_ALG_IMPL : public BLOWFISH_CONSTANT {
+        public:
+            static constexpr size_t BlockSizeValue = 8;
+            static constexpr size_t MinKeySizeValue = 1;
+            static constexpr size_t MaxKeySizeValue = 56;
+        private:
+            static inline const auto& OriginalPBox = BLOWFISH_CONSTANT::OriginalPBox;
+            static inline const auto& OriginalSBox = BLOWFISH_CONSTANT::OriginalSBox;
+
+            union BlockType {
+                uint8_t bytes[8];
+                uint32_t dwords[2];
+                uint64_t qword;
+            };
+            static_assert(sizeof(BlockType) == BlockSizeValue);
+
+            SecureWiper<Array<uint32_t, 18>> _SubKeyWiper;
+            SecureWiper<Array<uint32_t, 256>> _SubBoxWiper;
+            Array<uint32_t, 18> _SubKey;
+            Array<uint32_t, 256> _SubBox[4];
+
+            template<char __LR>
+            ACCEL_FORCEINLINE
+            uint32_t _F_transform(BlockType& RefBlock) const noexcept {
+                uint32_t result;
+
+                if constexpr (__LR == 'L') {
+                    result = _SubBox[0][RefBlock.bytes[3]];
+                    result += _SubBox[1][RefBlock.bytes[2]];
+                    result ^= _SubBox[2][RefBlock.bytes[1]];
+                    result += _SubBox[3][RefBlock.bytes[0]];
+                } else if constexpr (__LR == 'R') {
+                    result = _SubBox[0][RefBlock.bytes[4 + 3]];
+                    result += _SubBox[1][RefBlock.bytes[4 + 2]];
+                    result ^= _SubBox[2][RefBlock.bytes[4 + 1]];
+                    result += _SubBox[3][RefBlock.bytes[4 + 0]];
+                } else {
+                    static_assert(__LR == 'L' || __LR == 'R',
+                                  "_F_transform failure! Invalid __LR.");
+                    ACCEL_UNREACHABLE();
+                }
+
+                return result;
+            }
+
+            template<size_t __Index>
+            ACCEL_FORCEINLINE
+            void _EncryptLoop(BlockType& RefBlock) const noexcept {
+                RefBlock.dwords[__Index % 2 == 0 ? 0 : 1] ^= _SubKey[__Index];
+                RefBlock.dwords[__Index % 2 == 0 ? 1 : 0] ^=
+                    _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
+            }
+
+            template<size_t... __Indexes>
+            ACCEL_FORCEINLINE
+            void _EncryptLoops(BlockType& RefBlock,
+                                   std::index_sequence<__Indexes...>) const noexcept {
+                (_EncryptLoop<__Indexes>(RefBlock), ...);
+            }
+
+            template<bool __LEndian>
+            ACCEL_FORCEINLINE
+            void _EncryptProcess(BlockType& RefBlock) const noexcept {
+                if constexpr (__LEndian == false) {
+                    RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
+                    RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                }
+
+                _EncryptLoops(RefBlock, std::make_index_sequence<16>{});
+
+                RefBlock.dwords[0] ^= _SubKey[16];
+                RefBlock.dwords[1] ^= _SubKey[17];
+
+                std::swap(RefBlock.dwords[0], RefBlock.dwords[1]);
+
+                if constexpr (__LEndian == false) {
+                    RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
+                    RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                }
+            }
+
+            template<size_t __Index>
+            ACCEL_FORCEINLINE
+            void _DecryptLoop(BlockType& RefBlock) const noexcept {
+                RefBlock.dwords[__Index % 2 == 0 ? 1 : 0] ^=
+                    _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
+                RefBlock.dwords[__Index % 2 == 0 ? 0 : 1] ^=
+                    _SubKey[__Index];
+            }
+
+            template<size_t... __Indexes>
+            ACCEL_FORCEINLINE
+            void _DecryptLoops(BlockType& RefBlock,
+                                   std::index_sequence<__Indexes...>) const noexcept {
+                (_DecryptLoop<__Indexes>(RefBlock), ...);
+            }
+
+            template<bool __LEndian>
+            ACCEL_FORCEINLINE
+            void _DecryptProcess(BlockType& RefBlock) const noexcept {
+                if constexpr (__LEndian == false) {
+                    RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
+                    RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                }
+
+                std::swap(RefBlock.dwords[0], RefBlock.dwords[1]);
+
+                RefBlock.dwords[0] ^= _SubKey[16];
+                RefBlock.dwords[1] ^= _SubKey[17];
+
+                _DecryptLoops(RefBlock,
+                              std::index_sequence<15, 14, 13, 12, 11, 10, 9, 8,
+                              7, 6, 5, 4, 3, 2, 1, 0>{});
+
+                if constexpr (__LEndian == false) {
+                    RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
+                    RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                }
+            }
+
+            ACCEL_FORCEINLINE
+            void _KeyExpansion(const uint8_t* pUserKey, size_t UserKeySize) noexcept {
+                memcpy(_SubKey, OriginalPBox, sizeof(OriginalPBox));
+                memcpy(_SubBox[0], OriginalSBox[0], sizeof(OriginalSBox[0]));
+                memcpy(_SubBox[1], OriginalSBox[1], sizeof(OriginalSBox[1]));
+                memcpy(_SubBox[2], OriginalSBox[2], sizeof(OriginalSBox[2]));
+                memcpy(_SubBox[3], OriginalSBox[3], sizeof(OriginalSBox[3]));
+
+                for (int i = 0; i < _SubKey.Length(); ++i) {
+                    uint32_t temp = pUserKey[(i * 4) % UserKeySize];
+
+                    temp <<= 8;
+                    temp |= pUserKey[(i * 4 + 1) % UserKeySize];
+
+                    temp <<= 8;
+                    temp |= pUserKey[(i * 4 + 2) % UserKeySize];
+
+                    temp <<= 8;
+                    temp |= pUserKey[(i * 4 + 3) % UserKeySize];
+
+                    _SubKey[i] ^= temp;
+                }
+
+                BlockType temp = {};
+                for (int i = 0; i < 9; ++i) {
+                    _EncryptProcess<true>(temp);
+                    _SubKey.template AsArrayOf<uint64_t, 9>()[i] = temp.qword;
+                }
+
+                for (int i = 0; i < 128; ++i) {
+                    _EncryptProcess<true>(temp);
+                    _SubBox[0].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
+                }
+
+                for (int i = 0; i < 128; ++i) {
+                    _EncryptProcess<true>(temp);
+                    _SubBox[1].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
+                }
+
+                for (int i = 0; i < 128; ++i) {
+                    _EncryptProcess<true>(temp);
+                    _SubBox[2].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
+                }
+
+                for (int i = 0; i < 128; ++i) {
+                    _EncryptProcess<true>(temp);
+                    _SubBox[3].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
+                }
+            }
+
+        public:
+
+            BLOWFISH_ALG_IMPL() noexcept :
+                _SubKeyWiper(_SubKey),
+                _SubBoxWiper(_SubBoxWiper) {}
+
+            constexpr size_t BlockSize() const noexcept {
+                return BlockSizeValue;
+            }
+
+            constexpr size_t MinKeySize() const noexcept {
+                return MinKeySizeValue;
+            }
+
+            constexpr size_t MaxKeySize() const noexcept {
+                return MaxKeySizeValue;
+            }
+
+            [[nodiscard]]
+            bool SetKey(const void* pUserKey, size_t UserKeySize) noexcept {
+                if (UserKeySize < MinKeySizeValue || UserKeySize > MaxKeySizeValue)
+                    return false;
+
+                _KeyExpansion(reinterpret_cast<const uint8_t*>(pUserKey),
+                              UserKeySize);
+
+                return true;
+            }
+
+            size_t EncryptBlock(void* pPlaintext) const noexcept {
+                BlockType Text = *reinterpret_cast<BlockType*>(pPlaintext);
+                _EncryptProcess<__LittleEndian>(Text);
+                *reinterpret_cast<BlockType*>(pPlaintext) = Text;
+                return BlockSizeValue;
+            }
+
+            size_t DecryptBlock(void* pCiphertext) const noexcept {
+                BlockType Text = *reinterpret_cast<BlockType*>(pCiphertext);
+                _DecryptProcess<__LittleEndian>(Text);
+                *reinterpret_cast<BlockType*>(pCiphertext) = Text;
+                return BlockSizeValue;
+            }
+
+            void ClearKey() noexcept {
+                _SubKey.SecureZero();
+                _SubBox[0].SecureZero();
+                _SubBox[1].SecureZero();
+                _SubBox[2].SecureZero();
+                _SubBox[3].SecureZero();
+            }
+        };
+
     }   // end of namespace Internal
 
-    template<bool __LittleEndian>
-    class _BLOWFISH_ALG_IMPL : public Internal::BLOWFISH_CONSTANT {
-    public:
-        static constexpr size_t BlockSizeValue = 8;
-        static constexpr size_t MinKeySizeValue = 1;
-        static constexpr size_t MaxKeySizeValue = 56;
-    private:
-
-        static inline const auto& OriginalPBox =
-            Internal::BLOWFISH_CONSTANT::OriginalPBox;
-        static inline const auto& OriginalSBox =
-            Internal::BLOWFISH_CONSTANT::OriginalSBox;
-
-        union BlockType {
-            uint8_t bytes[8];
-            uint32_t dwords[2];
-            uint64_t qword;
-        };
-        static_assert(sizeof(BlockType) == BlockSizeValue);
-        
-        SecureArray<uint32_t, 18> _SubKey;
-        SecureArray<uint32_t, 256> _SubBox[4];
-
-        template<char __LR>
-        ACCEL_FORCEINLINE
-        uint32_t _F_transform(BlockType& RefBlock) const noexcept {
-            uint32_t result;
-
-            if constexpr (__LR == 'L') {
-                result =  _SubBox[0][RefBlock.bytes[3]];
-                result += _SubBox[1][RefBlock.bytes[2]];
-                result ^= _SubBox[2][RefBlock.bytes[1]];
-                result += _SubBox[3][RefBlock.bytes[0]];
-            } else if constexpr (__LR == 'R') {
-                result =  _SubBox[0][RefBlock.bytes[4 + 3]];
-                result += _SubBox[1][RefBlock.bytes[4 + 2]];
-                result ^= _SubBox[2][RefBlock.bytes[4 + 1]];
-                result += _SubBox[3][RefBlock.bytes[4 + 0]];
-            } else {
-                static_assert(__LR == 'L' || __LR == 'R', 
-                              "_F_transform failure! Invalid __LR.");
-                ACCEL_UNREACHABLE();
-            }
-
-            return result;
-        }
-
-        template<size_t __Index>
-        ACCEL_FORCEINLINE
-        void _EncryptLoop(BlockType& RefBlock) const noexcept {
-            RefBlock.dwords[__Index % 2 == 0 ? 0 : 1] ^= 
-                _SubKey[__Index];
-            RefBlock.dwords[__Index % 2 == 0 ? 1 : 0] ^= 
-                _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
-        }
-
-        template<size_t... __Indexes>
-        ACCEL_FORCEINLINE
-        void _EncryptLoops(BlockType& RefBlock, 
-                           std::index_sequence<__Indexes...>) const noexcept {
-            (_EncryptLoop<__Indexes>(RefBlock), ...);
-        }
-
-        template<bool __LEndian>
-        void _EncryptProcess(BlockType& RefBlock) const noexcept {
-            if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
-            }
-
-            _EncryptLoops(RefBlock, std::make_index_sequence<16>{});
-
-            RefBlock.dwords[0] ^= _SubKey[16];
-            RefBlock.dwords[1] ^= _SubKey[17];
-
-            std::swap(RefBlock.dwords[0], RefBlock.dwords[1]);
-
-            if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
-            }
-        }
-
-        template<size_t __Index>
-        ACCEL_FORCEINLINE
-        void _DecryptLoop(BlockType& RefBlock) const noexcept {
-            RefBlock.dwords[__Index % 2 == 0 ? 1 : 0] ^=
-                _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
-            RefBlock.dwords[__Index % 2 == 0 ? 0 : 1] ^=
-                _SubKey[__Index];
-        }
-
-        template<size_t... __Indexes>
-        ACCEL_FORCEINLINE
-        void _DecryptLoops(BlockType& RefBlock,
-                           std::index_sequence<__Indexes...>) const noexcept {
-            (_DecryptLoop<__Indexes>(RefBlock), ...);
-        }
-
-        template<bool __LEndian>
-        void _DecryptProcess(BlockType& RefBlock) const noexcept {
-            if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
-            }
-
-            std::swap(RefBlock.dwords[0], RefBlock.dwords[1]);
-
-            RefBlock.dwords[0] ^= _SubKey[16];
-            RefBlock.dwords[1] ^= _SubKey[17];
-
-            _DecryptLoops(RefBlock, 
-                          std::index_sequence<15, 14, 13, 12, 11, 10, 9, 8, 
-                                              7, 6, 5, 4, 3, 2, 1, 0>{});
-
-            if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
-            }
-        }
-
-        void _KeyExpansion(const uint8_t* pUserKey, size_t UserKeySize) noexcept {
-            memcpy(_SubKey, OriginalPBox, sizeof(OriginalPBox));
-            memcpy(_SubBox[0], OriginalSBox[0], sizeof(OriginalSBox[0]));
-            memcpy(_SubBox[1], OriginalSBox[1], sizeof(OriginalSBox[1]));
-            memcpy(_SubBox[2], OriginalSBox[2], sizeof(OriginalSBox[2]));
-            memcpy(_SubBox[3], OriginalSBox[3], sizeof(OriginalSBox[3]));
-
-            for (int i = 0; i < _SubKey.Length(); ++i) {
-                uint32_t temp = pUserKey[(i * 4) % UserKeySize];
-
-                temp <<= 8;
-                temp |= pUserKey[(i * 4 + 1) % UserKeySize];
-
-                temp <<= 8;
-                temp |= pUserKey[(i * 4 + 2) % UserKeySize];
-
-                temp <<= 8;
-                temp |= pUserKey[(i * 4 + 3) % UserKeySize];
-
-                _SubKey[i] ^= temp;
-            }
-
-            BlockType temp = {};
-            for (int i = 0; i < 9; ++i) {
-                _EncryptProcess<true>(temp);
-                _SubKey.template AsArrayOf<uint64_t, 9>()[i] = temp.qword;
-            }
-
-            for (int i = 0; i < 128; ++i) {
-                _EncryptProcess<true>(temp);
-                _SubBox[0].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
-            }
-
-            for (int i = 0; i < 128; ++i) {
-                _EncryptProcess<true>(temp);
-                _SubBox[1].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
-            }
-
-            for (int i = 0; i < 128; ++i) {
-                _EncryptProcess<true>(temp);
-                _SubBox[2].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
-            }
-
-            for (int i = 0; i < 128; ++i) {
-                _EncryptProcess<true>(temp);
-                _SubBox[3].template AsArrayOf<uint64_t, 128>()[i] = temp.qword;
-            }
-        }
-        
-    public:
-
-        constexpr size_t BlockSize() const noexcept {
-            return BlockSizeValue;
-        }
-
-        constexpr size_t MinKeySize() const noexcept {
-            return MinKeySizeValue;
-        }
-
-        constexpr size_t MaxKeySize() const noexcept {
-            return MaxKeySizeValue;
-        }
-
-        [[nodiscard]]
-        bool SetKey(const void* pUserKey, size_t UserKeySize) noexcept {
-            if (UserKeySize < MinKeySizeValue || UserKeySize > MaxKeySizeValue)
-                return false;
-
-            _KeyExpansion(reinterpret_cast<const uint8_t*>(pUserKey), 
-                          UserKeySize);
-
-            return true;
-        }
-
-        size_t EncryptBlock(void* pPlaintext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(pPlaintext);
-            _EncryptProcess<__LittleEndian>(Text);
-            *reinterpret_cast<BlockType*>(pPlaintext) = Text;
-            return BlockSizeValue;
-        }
-
-        size_t DecryptBlock(void* pCiphertext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(pCiphertext);
-            _DecryptProcess<__LittleEndian>(Text);
-            *reinterpret_cast<BlockType*>(pCiphertext) = Text;
-            return BlockSizeValue;
-        }
-
-        void ClearKey() noexcept {
-            _SubKey.SecureZero();
-            _SubBox[0].SecureZero();
-            _SubBox[1].SecureZero();
-            _SubBox[2].SecureZero();
-            _SubBox[3].SecureZero();
-        }
-    };
-
-    using BLOWFISH_ALG = _BLOWFISH_ALG_IMPL<false>;
+    using BLOWFISH_ALG = Internal::BLOWFISH_ALG_IMPL<false>;
+    using BLOWFISH_BIG_ALG = Internal::BLOWFISH_ALG_IMPL<true>;
 }
 

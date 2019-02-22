@@ -4,14 +4,10 @@
 #include <type_traits>
 #include <limits.h>
 
+#include "Config.hpp"
+
 #if defined(_MSC_VER)
 #include <intrin.h>
-
-#ifdef __unreachable
-#error "__unreachable has been defined."
-#else
-#define __unreachable() __assume(0)
-#endif
 
 namespace accel {
 
@@ -35,7 +31,7 @@ namespace accel {
                           sizeof(__IntegerType) == 8, 
                           "ByteSwap failure! Unsupported integer type.");
         }
-        __unreachable();
+        ACCEL_UNREACHABLE();
     }
 
     //
@@ -61,7 +57,7 @@ namespace accel {
                           sizeof(__IntegerType) == 8,
                           "RotateShiftLeft failure! Unsupported integer type.");
         }
-        __unreachable();
+        ACCEL_UNREACHABLE();
     }
 
     //
@@ -88,22 +84,12 @@ namespace accel {
                           sizeof(__IntegerType) == 8,
                           "RotateShiftRight failure! Unsupported integer type.");
         }
-        __unreachable();
+        ACCEL_UNREACHABLE();
     }
 }
 
 #elif defined(__GNUC__)
 #include <x86intrin.h>
-
-#ifndef __forceinline
-#define __forceinline __attribute__((always_inline)) inline
-#endif
-
-#ifdef __unreachable
-#error "__unreachable has been defined."
-#else
-#define __unreachable() __builtin_unreachable()
-#endif
 
 namespace accel {
 
@@ -111,7 +97,7 @@ namespace accel {
     //  Begin ByteSwap
     //
     template<typename __IntegerType>
-    __forceinline
+    ACCEL_FORCEINLINE
     __IntegerType ByteSwap(__IntegerType x) noexcept {
         static_assert(std::is_integral<__IntegerType>::value, "ByteSwap failure! Not a integer type.");
         static_assert(sizeof(__IntegerType) == 2 ||
@@ -130,7 +116,7 @@ namespace accel {
             return __builtin_bswap64(x);
         }
 
-        __builtin_unreachable();
+        ACCEL_UNREACHABLE();
     }
 
     //
@@ -139,7 +125,7 @@ namespace accel {
     //  The following code will be optimized by `rol` assembly code
     //
     template<typename __IntegerType>
-    __forceinline
+    ACCEL_FORCEINLINE
     __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) noexcept {
         static_assert(std::is_integral<__IntegerType>::value, "RotateShiftLeft failure! Not a integer type.");
         shift %= sizeof(__IntegerType) * CHAR_BIT;
@@ -155,7 +141,7 @@ namespace accel {
     //  The following code will be optimized by `ror` assembly code
     //
     template<typename __IntegerType>
-    __forceinline
+    ACCEL_FORCEINLINE
     __IntegerType RotateShiftRight(__IntegerType x, unsigned shift) noexcept {
         static_assert(std::is_integral<__IntegerType>::value, "RotateShiftRight failure! Not a integer type.");
         shift %= sizeof(__IntegerType) * CHAR_BIT;
@@ -169,7 +155,7 @@ namespace accel {
     //  Begin AddCarry
     //
     template<typename __IntegerType>
-    __forceinline
+    ACCEL_FORCEINLINE
     uint8_t AddCarry(uint8_t carry, __IntegerType a, __IntegerType b, __IntegerType* p_c) {
         static_assert(std::is_integral<__IntegerType>::value, "AddCarry failure! Not a integer type.");
         static_assert(sizeof(__IntegerType) == 4 ||
@@ -187,14 +173,14 @@ namespace accel {
 #endif
         }
 
-        __builtin_unreachable();
+        ACCEL_UNREACHABLE();
     }
 
     //
     //  Begin SubBorrow
     //
     template<typename __IntegerType>
-    __forceinline
+    ACCEL_FORCEINLINE
     uint8_t SubBorrow(uint8_t borrow, __IntegerType a, __IntegerType b, __IntegerType* p_c) {
         static_assert(std::is_integral<__IntegerType>::value, "SubBorrow failure! Not a integer type.");
         static_assert(sizeof(__IntegerType) == 4 ||
@@ -212,7 +198,7 @@ namespace accel {
 #endif
         }
 
-        __builtin_unreachable();
+        ACCEL_UNREACHABLE();
     }
 
     

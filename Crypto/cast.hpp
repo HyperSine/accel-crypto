@@ -1,7 +1,8 @@
 #pragma once
-#include "../Common/Config.hpp"
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 
 namespace accel::Crypto {
@@ -360,8 +361,10 @@ namespace accel::Crypto {
         };
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureArray<uint32_t, 16> _MaskKeys;
-        SecureArray<uint32_t, 16> _RotationKeys;
+        SecureWiper<Array<uint32_t, 16>> _MaskKeysWiper;
+        SecureWiper<Array<uint32_t, 16>> _RotationKeysWiper;
+        Array<uint32_t, 16> _MaskKeys;
+        Array<uint32_t, 16> _RotationKeys;
         size_t _Rounds;
 
         template<size_t __TypeNum>
@@ -387,6 +390,7 @@ namespace accel::Crypto {
             ACCEL_UNREACHABLE();
         }
 
+        ACCEL_FORCEINLINE
         void _KeyExpansion(VectorType& x, VectorType& z) noexcept {
             uint8_t& x0 = x.bytes[0x3];
             uint8_t& x1 = x.bytes[0x2];
@@ -649,6 +653,10 @@ namespace accel::Crypto {
         
     public:
 
+        CAST128_ALG() noexcept :
+            _MaskKeysWiper(_MaskKeys),
+            _RotationKeysWiper(_RotationKeys) {}
+
         constexpr size_t BlockSize() const noexcept {
             return BlockSizeValue;
         }
@@ -743,10 +751,14 @@ namespace accel::Crypto {
         using BlockType = VectorType;
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureArray<VectorType, 12> _MaskKeys;
-        SecureArray<VectorType, 12> _RotationKeys;
-        SecureArray<VectorType, 12> _InvMaskKeys;
-        SecureArray<VectorType, 12> _InvRotationKeys;
+        SecureWiper<Array<VectorType, 12>> _MaskKeysWiper;
+        SecureWiper<Array<VectorType, 12>> _RotationKeysWiper;
+        SecureWiper<Array<VectorType, 12>> _InvMaskKeysWiper;
+        SecureWiper<Array<VectorType, 12>> _InvRotationKeysWiper;
+        Array<VectorType, 12> _MaskKeys;
+        Array<VectorType, 12> _RotationKeys;
+        Array<VectorType, 12> _InvMaskKeys;
+        Array<VectorType, 12> _InvRotationKeys;
 
         template<size_t __TypeNum>
         ACCEL_FORCEINLINE
@@ -786,8 +798,8 @@ namespace accel::Crypto {
         template<size_t __Index>
         ACCEL_FORCEINLINE
         static void _QTransform(BlockType& beta, 
-                                const SecureArray<VectorType, 12>& MaskKeys,
-                                const SecureArray<VectorType, 12>& RotationKeys) noexcept {
+                                const Array<VectorType, 12>& MaskKeys,
+                                const Array<VectorType, 12>& RotationKeys) noexcept {
             beta['C' - 'A'] ^= _Transform<0>(MaskKeys[__Index][0],
                                              RotationKeys[__Index][0], 
                                              beta['D' - 'A']);
@@ -805,8 +817,8 @@ namespace accel::Crypto {
         template<size_t __Index>
         ACCEL_FORCEINLINE
         static void _QBarTransform(BlockType& beta, 
-                                   const SecureArray<VectorType, 12>& MaskKeys, 
-                                   const SecureArray<VectorType, 12>& RotationKeys) noexcept {
+                                   const Array<VectorType, 12>& MaskKeys, 
+                                   const Array<VectorType, 12>& RotationKeys) noexcept {
             beta['D' - 'A'] ^= _Transform<0>(MaskKeys[__Index][3], 
                                              RotationKeys[__Index][3], 
                                              beta['A' - 'A']);
@@ -821,6 +833,7 @@ namespace accel::Crypto {
                                              beta['D' - 'A']);
         }
 
+        ACCEL_FORCEINLINE
         void _KeyExpansion(uint32_t (&Kappa)[8]) noexcept {
             for (int i = 0; i < 12; ++i) {
                 _Omega(2 * i, Kappa);
@@ -844,8 +857,8 @@ namespace accel::Crypto {
         template<size_t __Index>
         ACCEL_FORCEINLINE
         static void _EncDecLoop(BlockType& RefBlock,
-                                const SecureArray<VectorType, 12>& MaskKeys,
-                                const SecureArray<VectorType, 12>& RotationKeys) noexcept {
+                                const Array<VectorType, 12>& MaskKeys,
+                                const Array<VectorType, 12>& RotationKeys) noexcept {
             if constexpr (__Index < 6) {
                 _QTransform<__Index>(RefBlock, MaskKeys, RotationKeys);
             } else if constexpr (6 <= __Index && __Index < 12) {
@@ -856,18 +869,26 @@ namespace accel::Crypto {
         }
 
         template<size_t... __Indexes>
+        ACCEL_FORCEINLINE
         void _EncryptLoops(BlockType& RefBlock,
                            std::index_sequence<__Indexes...>) const noexcept {
             (_EncDecLoop<__Indexes>(RefBlock, _MaskKeys, _RotationKeys), ...);
         }
 
         template<size_t... __Indexes>
+        ACCEL_FORCEINLINE
         void _DecryptLoops(BlockType& RefBlock, 
                            std::index_sequence<__Indexes...>) const noexcept {
             (_EncDecLoop<__Indexes>(RefBlock, _InvMaskKeys, _InvRotationKeys), ...);
         }
 
     public:
+
+        CAST256_ALG() noexcept :
+            _MaskKeysWiper(_MaskKeys),
+            _RotationKeysWiper(_RotationKeys),
+            _InvMaskKeysWiper(_InvMaskKeys),
+            _InvRotationKeysWiper(_InvRotationKeys) {}
 
         constexpr size_t BlockSize() const noexcept {
             return BlockSizeValue;
