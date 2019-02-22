@@ -1,0 +1,8 @@
+x64/*
+Debug/*
+accel-crypto.vcxproj
+accel-crypto.vcxproj.filters
+accel-crypto.vcxproj.user
+
+_tmain.cpp
+main.cpp
