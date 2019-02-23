@@ -1,82 +1,92 @@
 #pragma once
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
-#include "../Common/ShuffleForward.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
+#include "../ShuffleForward.hpp"
 #include <memory.h>
 #include <assert.h>
 
 namespace accel::Hash {
 
-    template<size_t __i, size_t __j>
-    struct _HAVAL_PHI;
+    namespace Internal {
 
-    template<>
-    struct _HAVAL_PHI<3, 1> {
-        using Value = std::index_sequence<1, 0, 3, 5, 6, 2, 4>;
-    };
+        template<size_t __i, size_t __j>
+        struct HAVAL_PHI;
 
-    template<>
-    struct _HAVAL_PHI<3, 2> {
-        using Value = std::index_sequence<4, 2, 1, 0, 5, 3, 6>;
-    };
+        template<>
+        struct HAVAL_PHI<3, 1> {
+            using Value = std::index_sequence<1, 0, 3, 5, 6, 2, 4>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<3, 3> {
-        using Value = std::index_sequence<6, 1, 2, 3, 4, 5, 0>;
-    };
+        template<>
+        struct HAVAL_PHI<3, 2> {
+            using Value = std::index_sequence<4, 2, 1, 0, 5, 3, 6>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<4, 1> {
-        using Value = std::index_sequence<2, 6, 1, 4, 5, 3, 0>;
-    };
+        template<>
+        struct HAVAL_PHI<3, 3> {
+            using Value = std::index_sequence<6, 1, 2, 3, 4, 5, 0>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<4, 2> {
-        using Value = std::index_sequence<3, 5, 2, 0, 1, 6, 4>;
-    };
+        template<>
+        struct HAVAL_PHI<4, 1> {
+            using Value = std::index_sequence<2, 6, 1, 4, 5, 3, 0>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<4, 3> {
-        using Value = std::index_sequence<1, 4, 3, 6, 0, 2, 5>;
-    };
+        template<>
+        struct HAVAL_PHI<4, 2> {
+            using Value = std::index_sequence<3, 5, 2, 0, 1, 6, 4>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<4, 4> {
-        using Value = std::index_sequence<6, 4, 0, 5, 2, 1, 3>;
-    };
+        template<>
+        struct HAVAL_PHI<4, 3> {
+            using Value = std::index_sequence<1, 4, 3, 6, 0, 2, 5>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<5, 1> {
-        using Value = std::index_sequence<3, 4, 1, 0, 5, 2, 6>;
-    };
+        template<>
+        struct HAVAL_PHI<4, 4> {
+            using Value = std::index_sequence<6, 4, 0, 5, 2, 1, 3>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<5, 2> {
-        using Value = std::index_sequence<6, 2, 1, 0, 3, 4, 5>;
-    };
+        template<>
+        struct HAVAL_PHI<5, 1> {
+            using Value = std::index_sequence<3, 4, 1, 0, 5, 2, 6>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<5, 3> {
-        using Value = std::index_sequence<2, 6, 0, 4, 3, 1, 5>;
-    };
+        template<>
+        struct HAVAL_PHI<5, 2> {
+            using Value = std::index_sequence<6, 2, 1, 0, 3, 4, 5>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<5, 4> {
-        using Value = std::index_sequence<1, 5, 3, 2, 0, 4, 6>;
-    };
+        template<>
+        struct HAVAL_PHI<5, 3> {
+            using Value = std::index_sequence<2, 6, 0, 4, 3, 1, 5>;
+        };
 
-    template<>
-    struct _HAVAL_PHI<5, 5> {
-        using Value = std::index_sequence<2, 5, 0, 6, 4, 3, 1>;
-    };
+        template<>
+        struct HAVAL_PHI<5, 4> {
+            using Value = std::index_sequence<1, 5, 3, 2, 0, 4, 6>;
+        };
 
-    template<size_t __bits, size_t __PASS>
-    class _HAVAL_ALG_IMPL {
-        static_assert(__bits == 128 ||
-                      __bits == 160 ||
-                      __bits == 192 ||
-                      __bits == 224 ||
-                      __bits == 256, "_IMPL_HAVAL_ALG failure! Invalid __bits");
+        template<>
+        struct HAVAL_PHI<5, 5> {
+            using Value = std::index_sequence<2, 5, 0, 6, 4, 3, 1>;
+        };
+
+    }
+
+    //
+    // __Bits can be 128, 160, 192, 224, 256
+    // __PASS can be 3, 4, 5
+    //
+    template<size_t __Bits, size_t __PASS>
+    class HAVAL_ALG {
+        static_assert(__Bits == 128 ||
+                      __Bits == 160 ||
+                      __Bits == 192 ||
+                      __Bits == 224 ||
+                      __Bits == 256, "_IMPL_HAVAL_ALG failure! Invalid __Bits");
         static_assert(__PASS == 3 ||
                       __PASS == 4 ||
                       __PASS == 5,
@@ -130,7 +140,7 @@ namespace accel::Hash {
         };
 
         template<size_t __pass>
-        __forceinline
+        ACCEL_FORCEINLINE
         static uint32_t _impl_F(uint32_t X6, uint32_t X5, uint32_t X4, uint32_t X3,
                                 uint32_t X2, uint32_t X1, uint32_t X0) noexcept {
             if constexpr (__pass == 1) {
@@ -179,26 +189,25 @@ namespace accel::Hash {
             } else {
                 static_assert(__pass != 0 && __pass < 6, "_impl_F failure! Out of range.");
             }
-            __unreachable();
+            ACCEL_UNREACHABLE();
         }
 
         template<size_t __pass, size_t... __PermuteSeq>
-        __forceinline
+        ACCEL_FORCEINLINE
         static uint32_t _F(uint32_t& T6, uint32_t& T5, uint32_t& T4, uint32_t& T3,
                            uint32_t& T2, uint32_t& T1, uint32_t& T0,
                            std::index_sequence<__PermuteSeq...>) noexcept {
-            static_assert(sizeof...(__PermuteSeq) == 7,
-                          "_F failure! Incorrect size of __PermuteSeq");
+            static_assert(sizeof...(__PermuteSeq) == 7, "_F failure! Incorrect size of __PermuteSeq");
             return accel::ShuffleForward<__PermuteSeq...>(_impl_F<__pass>, T0, T1, T2, T3, T4, T5, T6);
         }
 
         template<size_t __pass, size_t __Index>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _Loop(uint32_t& T7, uint32_t& T6, uint32_t& T5, uint32_t& T4,
                           uint32_t& T3, uint32_t& T2, uint32_t& T1, uint32_t& T0,
                           const uint32_t (&MessageBlock)[32]) noexcept {
             uint32_t P = _F<__pass>(T6, T5, T4, T3, T2, T1, T0,
-                                    typename _HAVAL_PHI<__PASS, __pass>::Value{});
+                                    typename Internal::HAVAL_PHI<__PASS, __pass>::Value{});
             uint32_t R = RotateShiftRight<uint32_t>(P, 7) +
                          RotateShiftRight<uint32_t>(T7, 11) +
                          MessageBlock[_ord[__pass - 1][__Index]] +
@@ -207,7 +216,7 @@ namespace accel::Hash {
         }
 
         template<size_t __pass, size_t... __Indexes>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _Loops(uint32_t (&T)[8],
                            const uint32_t (&MessageBlock)[32],
                            std::index_sequence<__Indexes...>) noexcept {
@@ -222,18 +231,20 @@ namespace accel::Hash {
         }
 
         template<size_t __i>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _Pass(uint32_t (&T)[8], const uint32_t (&MessageBlock)[32]) noexcept {
             _Loops<__i>(T, MessageBlock, std::make_index_sequence<32>{});
         }
 
-        SecureArray<uint32_t, 8> _State;
+        SecureWiper<Array<uint32_t, 8>> _StateWiper;
+        Array<uint32_t, 8> _State;
 
     public:
-        static constexpr size_t BlockSize = 128;
-        static constexpr size_t DigestSize = __bits / 8;
+        static constexpr size_t BlockSizeValue = 128;
+        static constexpr size_t DigestSizeValue = __Bits / 8;
 
-        _HAVAL_ALG_IMPL() noexcept :
+        HAVAL_ALG() noexcept :
+            _StateWiper(_State),
             _State{ 0x243F6A88u,
                     0x85A308D3u,
                     0x13198A2Eu,
@@ -278,28 +289,28 @@ namespace accel::Hash {
 
         void Finish(const void* pTail, size_t TailSize, uint64_t ProcessedBytes) noexcept {
             static constexpr size_t ReserveSize = 1 + 2 + sizeof(uint64_t);
-            assert(TailSize <= 2 * BlockSize - ReserveSize);
+            assert(TailSize <= 2 * BlockSizeValue - ReserveSize);
 
-            uint8_t FormattedTail[2 * BlockSize] = {};
+            uint8_t FormattedTail[2 * BlockSizeValue] = {};
             size_t Rounds;
 
             memcpy(FormattedTail, pTail, TailSize);
             FormattedTail[TailSize] = 0x01;
-            Rounds = TailSize > BlockSize - ReserveSize ? 2 : 1;
+            Rounds = TailSize > BlockSizeValue - ReserveSize ? 2 : 1;
             {
                 auto pBitSizeArea =
                         reinterpret_cast<uint64_t*>(
-                                FormattedTail + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) :
-                                                (BlockSize - sizeof(uint64_t))
+                                FormattedTail + (Rounds > 1 ? (2 * BlockSizeValue - sizeof(uint64_t)) :
+                                                (BlockSizeValue - sizeof(uint64_t))
                                 )
                         );
                 auto pDGSTLENG = reinterpret_cast<uint8_t*>(pBitSizeArea) - 2;
                 pDGSTLENG[0] = static_cast<uint8_t>(
                     (_HAVAL_VERSION & 0x7) |
                     ((__PASS & 0x7) << 3)  |
-                    ((__bits & 0x3) << 6)
+                    ((__Bits & 0x3) << 6)
                 );
-                pDGSTLENG[1] = static_cast<uint8_t>(__bits >> 2);
+                pDGSTLENG[1] = static_cast<uint8_t>(__Bits >> 2);
                 *pBitSizeArea = ProcessedBytes * 8;
             }
 
@@ -312,9 +323,9 @@ namespace accel::Hash {
             }
         }
 
-        ByteArray<DigestSize> Digest() const noexcept {
-            ByteArray<DigestSize> result;
-            if constexpr (__bits == 128) {
+        Array<uint8_t, DigestSizeValue> Digest() const noexcept {
+            Array<uint8_t, DigestSizeValue> result;
+            if constexpr (__Bits == 128) {
                 result.template AsArrayOf<uint32_t, 4>()[0] =
                     RotateShiftRight((_State[7] & 0x000000ffu) |
                                      (_State[6] & 0xff000000u) |
@@ -340,7 +351,7 @@ namespace accel::Hash {
                 result.template AsArrayOf<uint32_t, 4>()[2] += _State[2];
                 result.template AsArrayOf<uint32_t, 4>()[3] += _State[3];
                 return result;
-            } else if constexpr (__bits == 160) {
+            } else if constexpr (__Bits == 160) {
                 result.template AsArrayOf<uint32_t, 5>()[0] =
                     RotateShiftRight((_State[7] & 0x0000003fu) |
                                      (_State[6] & 0xfe000000u) |
@@ -367,7 +378,7 @@ namespace accel::Hash {
                 result.template AsArrayOf<uint32_t, 5>()[3] += _State[3];
                 result.template AsArrayOf<uint32_t, 5>()[4] += _State[4];
                 return result;
-            } else if constexpr (__bits == 192) {
+            } else if constexpr (__Bits == 192) {
                 result.template AsArrayOf<uint32_t, 6>()[0] =
                     RotateShiftRight((_State[7] & 0x0000001fu) |
                                      (_State[6] & 0xfc000000u), 26);
@@ -393,7 +404,7 @@ namespace accel::Hash {
                 result.template AsArrayOf<uint32_t, 6>()[4] += _State[4];
                 result.template AsArrayOf<uint32_t, 6>()[5] += _State[5];
                 return result;
-            } else if constexpr (__bits == 224) {
+            } else if constexpr (__Bits == 224) {
                 result.template AsArrayOf<uint32_t, 7>()[0] =
                     (_State[7] & 0xf8000000u) >> 27;
                 result.template AsArrayOf<uint32_t, 7>()[1] =
@@ -417,29 +428,9 @@ namespace accel::Hash {
                 result.template AsArrayOf<uint32_t, 7>()[6] += _State[6];
                 return result;
             } else {
-                return _State.AsArrayOf<uint8_t, DigestSize>();
+                return _State.AsArrayOf<uint8_t, DigestSizeValue>();
             }
         }
     };
-
-    using HAVAL128_3_ALG = _HAVAL_ALG_IMPL<128, 3>;
-    using HAVAL128_4_ALG = _HAVAL_ALG_IMPL<128, 4>;
-    using HAVAL128_5_ALG = _HAVAL_ALG_IMPL<128, 5>;
-    
-    using HAVAL160_3_ALG = _HAVAL_ALG_IMPL<160, 3>;
-    using HAVAL160_4_ALG = _HAVAL_ALG_IMPL<160, 4>;
-    using HAVAL160_5_ALG = _HAVAL_ALG_IMPL<160, 5>;
-    
-    using HAVAL192_3_ALG = _HAVAL_ALG_IMPL<192, 3>;
-    using HAVAL192_4_ALG = _HAVAL_ALG_IMPL<192, 4>;
-    using HAVAL192_5_ALG = _HAVAL_ALG_IMPL<192, 5>;
-
-    using HAVAL224_3_ALG = _HAVAL_ALG_IMPL<224, 3>;
-    using HAVAL224_4_ALG = _HAVAL_ALG_IMPL<224, 4>;
-    using HAVAL224_5_ALG = _HAVAL_ALG_IMPL<224, 5>;
-
-    using HAVAL256_3_ALG = _HAVAL_ALG_IMPL<256, 3>;
-    using HAVAL256_4_ALG = _HAVAL_ALG_IMPL<256, 4>;
-    using HAVAL256_5_ALG = _HAVAL_ALG_IMPL<256, 5>;
 }
 

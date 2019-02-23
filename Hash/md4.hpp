@@ -1,7 +1,8 @@
 #pragma once
-#include <stdint.h>
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 #include <assert.h>
 
@@ -9,40 +10,48 @@ namespace accel::Hash {
 
     class MD4_ALG {
     private:
-        SecureArray<uint32_t, 4> _State;
+        SecureWiper<Array<uint32_t, 4>> _StateWiper;
+        Array<uint32_t, 4> _State;
 
+        ACCEL_FORCEINLINE
         uint32_t _F(uint32_t X, uint32_t Y, uint32_t Z) noexcept {
             return (X & Y) | (~X & Z);
         }
 
+        ACCEL_FORCEINLINE
         uint32_t _G(uint32_t X, uint32_t Y, uint32_t Z) noexcept {
             return (X & Y) | (X & Z) | (Y & Z);
         }
 
+        ACCEL_FORCEINLINE
         uint32_t _H(uint32_t X, uint32_t Y, uint32_t Z) noexcept {
             return X ^ Y ^ Z;
         }
 
+        ACCEL_FORCEINLINE
         void _FF(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t K, uint32_t s) noexcept {
             A += _F(B, C, D) + K;
             A = RotateShiftLeft(A, s);
         }
 
+        ACCEL_FORCEINLINE
         void _GG(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t K, uint32_t s) noexcept {
             A += _G(B, C, D) + K + 0x5A827999u;
             A = RotateShiftLeft(A, s);
         }
 
+        ACCEL_FORCEINLINE
         void _HH(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t K, uint32_t s) noexcept {
             A += _H(B, C, D) + K + 0x6ED9EBA1u;
             A = RotateShiftLeft(A, s);
         }
 
     public:
-        static constexpr size_t BlockSize = 64;
-        static constexpr size_t DigestSize = 16;
+        static constexpr size_t BlockSizeValue = 64;
+        static constexpr size_t DigestSizeValue = 16;
 
         MD4_ALG() noexcept :
+            _StateWiper(_State),
             _State{ 0x67452301u,
                     0xEFCDAB89u,
                     0x98BADCFEu,
@@ -117,15 +126,15 @@ namespace accel::Hash {
         }
 
         void Finish(const void* pTailData, size_t TailDataSize, uint64_t ProcessedBytes) noexcept {
-            assert(TailDataSize <= 2 * BlockSize - sizeof(uint64_t) - 1);
+            assert(TailDataSize <= 2 * BlockSizeValue - sizeof(uint64_t) - 1);
 
-            uint8_t FormattedTailData[2 * BlockSize] = {};
+            uint8_t FormattedTailData[2 * BlockSizeValue] = {};
             size_t Rounds;
 
             memcpy(FormattedTailData, pTailData, TailDataSize);
             FormattedTailData[TailDataSize] = 0x80;
-            Rounds = TailDataSize >= BlockSize - sizeof(uint64_t) ? 2 : 1;
-            *reinterpret_cast<uint64_t*>(FormattedTailData + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) : (BlockSize - sizeof(uint64_t)))) =
+            Rounds = TailDataSize >= BlockSizeValue - sizeof(uint64_t) ? 2 : 1;
+            *reinterpret_cast<uint64_t*>(FormattedTailData + (Rounds > 1 ? (2 * BlockSizeValue - sizeof(uint64_t)) : (BlockSizeValue - sizeof(uint64_t)))) =
                     ProcessedBytes * 8;
 
             Cycle(FormattedTailData, Rounds);
@@ -137,8 +146,8 @@ namespace accel::Hash {
             }
         }
 
-        ByteArray<DigestSize> Digest() const noexcept {
-            return _State.AsArrayOf<uint8_t, DigestSize>();
+        Array<uint8_t, DigestSizeValue> Digest() const noexcept {
+            return _State.AsArrayOf<uint8_t, DigestSizeValue>();
         }
     };
 

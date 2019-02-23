@@ -1,72 +1,68 @@
 #pragma once
-#include "../Common/Array.hpp"
-#include "../Common/Intrinsic.hpp"
+#include "../Config.hpp"
+#include "../SecureWiper.hpp"
+#include "../Array.hpp"
+#include "../Intrinsic.hpp"
 #include <memory.h>
 #include <assert.h>
 
 namespace accel::Hash {
 
-    template<size_t __bits>
-    class _RIPEMD_CONSTANT;
+    namespace Internal {
 
-    template<>
-    class _RIPEMD_CONSTANT<128> {
-    protected:
-        static constexpr Array<uint32_t, 4> _InitValue{ 0x67452301u,
-                                                        0xEFCDAB89u,
-                                                        0x98BADCFEu,
-                                                        0x10325476u };
-    };
+        template<size_t __Bits>
+        class RIPEMD_CONSTANT;
 
-    template<>
-    class _RIPEMD_CONSTANT<160> {
-    protected:
-        static constexpr Array<uint32_t, 5> _InitValue{ 0x67452301u,
-                                                        0xefcdab89u,
-                                                        0x98badcfeu,
-                                                        0x10325476u,
-                                                        0xc3d2e1f0u };
-    };
+        template<>
+        class RIPEMD_CONSTANT<128> {
+        protected:
+            static constexpr Array<uint32_t, 4> _InitValue{ 
+                0x67452301u, 0xEFCDAB89u, 0x98BADCFEu, 0x10325476u 
+            };
+        };
 
-    template<>
-    class _RIPEMD_CONSTANT<256> {
-    protected:
-        static constexpr Array<uint32_t, 8> _InitValue{ 0x67452301u,
-                                                        0xEFCDAB89u,
-                                                        0x98BADCFEu,
-                                                        0x10325476u,
-                                                        0x76543210u,
-                                                        0xFEDCBA98u,
-                                                        0x89ABCDEFu,
-                                                        0x01234567u };
-    };
+        template<>
+        class RIPEMD_CONSTANT<160> {
+        protected:
+            static constexpr Array<uint32_t, 5> _InitValue{ 
+                0x67452301u, 0xefcdab89u, 0x98badcfeu, 0x10325476u,
+                0xc3d2e1f0u 
+            };
+        };
 
-    template<>
-    class _RIPEMD_CONSTANT<320> {
-    protected:
-        static constexpr Array<uint32_t, 10> _InitValue{ 0x67452301u,
-                                                         0xEFCDAB89u,
-                                                         0x98BADCFEu,
-                                                         0x10325476u,
-                                                         0xC3D2E1F0u,
-                                                         0x76543210u,
-                                                         0xFEDCBA98u,
-                                                         0x89ABCDEFu,
-                                                         0x01234567u,
-                                                         0x3C2D1E0Fu };
-    };
+        template<>
+        class RIPEMD_CONSTANT<256> {
+        protected:
+            static constexpr Array<uint32_t, 8> _InitValue{ 
+                0x67452301u, 0xEFCDAB89u, 0x98BADCFEu, 0x10325476u,
+                0x76543210u, 0xFEDCBA98u, 0x89ABCDEFu, 0x01234567u 
+            };
+        };
 
-    template<size_t __bits>
-    class _IMPL_RIPEMD_ALG : public _RIPEMD_CONSTANT<__bits> {
-        static_assert(__bits == 128 ||
-                      __bits == 160 ||
-                      __bits == 256 ||
-                      __bits == 320, "_IMPL_RIPEMD_ALG failure! Unsupported bits.");
+        template<>
+        class RIPEMD_CONSTANT<320> {
+        protected:
+            static constexpr Array<uint32_t, 10> _InitValue{ 
+                0x67452301u, 0xEFCDAB89u, 0x98BADCFEu, 0x10325476u,
+                0xC3D2E1F0u, 0x76543210u, 0xFEDCBA98u, 0x89ABCDEFu,
+                0x01234567u, 0x3C2D1E0Fu 
+            };
+        };
+
+    }
+
+    template<size_t __Bits>
+    class RIPEMD_ALG : public Internal::RIPEMD_CONSTANT<__Bits> {
+        static_assert(__Bits == 128 ||
+                      __Bits == 160 ||
+                      __Bits == 256 ||
+                      __Bits == 320, "RIPEMD_ALG failure! Unsupported bits.");
     private:
-        SecureArray<uint32_t, __bits / 32> _State;
+        SecureWiper<Array<uint32_t, __Bits / 32>> _StateWiper;
+        Array<uint32_t, __Bits / 32> _State;
 
         template<size_t __Index>
-        __forceinline
+        ACCEL_FORCEINLINE
         static uint32_t _f(uint32_t x, uint32_t y, uint32_t z) noexcept {
             if constexpr (0 <= __Index && __Index < 16) {
                 return x ^ y ^ z;
@@ -76,15 +72,15 @@ namespace accel::Hash {
                 return (x | ~y) ^ z;
             } else if constexpr (48 <= __Index && __Index < 64) {
                 return (x & z) | (y & ~z);
-            } else if constexpr ((__bits == 160 || __bits == 320) &&
+            } else if constexpr ((__Bits == 160 || __Bits == 320) &&
                                  64 <= __Index && __Index < 80) {
-                return x ^ (y | ~z);    // only available when __bits is 160 or 320
+                return x ^ (y | ~z);    // only available when __Bits is 160 or 320
             } else {
-                static_assert(((__bits == 128 || __bits == 256) && __Index < 64) ||
-                              ((__bits == 160 || __bits == 320) && __Index < 80),
+                static_assert(((__Bits == 128 || __Bits == 256) && __Index < 64) ||
+                              ((__Bits == 160 || __Bits == 320) && __Index < 80),
                               "_f(x, y, z) failure! Out of range.");
             }
-            __unreachable();
+            ACCEL_UNREACHABLE();
         }
 
         template<size_t __Index>
@@ -97,15 +93,15 @@ namespace accel::Hash {
                 return 0x6ED9EBA1u;
             } else if constexpr (48 <= __Index && __Index < 64) {
                 return 0x8F1BBCDCu;
-            } else if constexpr ((__bits == 160 || __bits == 320) &&
+            } else if constexpr ((__Bits == 160 || __Bits == 320) &&
                                  64 <= __Index && __Index < 80) {
-                return 0xA953FD4Eu;     // only available when __bits is 160 or 320
+                return 0xA953FD4Eu;     // only available when __Bits is 160 or 320
             } else {
-                static_assert(((__bits == 128 || __bits == 256) && __Index < 64) ||
-                              ((__bits == 160 || __bits == 320) && __Index < 80),
+                static_assert(((__Bits == 128 || __Bits == 256) && __Index < 64) ||
+                              ((__Bits == 160 || __Bits == 320) && __Index < 80),
                               "_K() failure! Out of range.");
             }
-            __unreachable();
+            ACCEL_UNREACHABLE();
         }
 
         template<size_t __Index>
@@ -117,20 +113,20 @@ namespace accel::Hash {
             } else if constexpr (32 <= __Index && __Index < 48) {
                 return 0x6D703EF3u;
             } else if constexpr (48 <= __Index && __Index < 64) {
-                if constexpr (__bits == 128 || __bits == 256) {
+                if constexpr (__Bits == 128 || __Bits == 256) {
                     return 0u;
                 } else {
                     return 0x7A6D76E9u;
                 }
-            } else if constexpr ((__bits == 160 || __bits == 320) &&
+            } else if constexpr ((__Bits == 160 || __Bits == 320) &&
                                  64 <= __Index && __Index < 80) {
-                return 0u;      // only available when __bits is 160 or 320
+                return 0u;      // only available when __Bits is 160 or 320
             } else {
-                static_assert(((__bits == 128 || __bits == 256) && __Index < 64) ||
-                              ((__bits == 160 || __bits == 320) && __Index < 80),
+                static_assert(((__Bits == 128 || __Bits == 256) && __Index < 64) ||
+                              ((__Bits == 160 || __Bits == 320) && __Index < 80),
                               "_KK() failure! Out of range.");
             }
-            __unreachable();
+            ACCEL_UNREACHABLE();
         }
 
         static constexpr size_t _r[80] = {
@@ -167,7 +163,7 @@ namespace accel::Hash {
 
         // for RIPEMD-128, RIPEMD-256 only
         template<size_t __Index>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _Loop(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D,
                           uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD,
                           uint32_t& T,
@@ -184,7 +180,7 @@ namespace accel::Hash {
             BB = T;
 
             // for the case when RIPEMD-256
-            if constexpr (__bits == 256) {
+            if constexpr (__Bits == 256) {
                 if constexpr (__Index == 15) {
                     T = A;
                     A = AA;
@@ -209,7 +205,7 @@ namespace accel::Hash {
         }
 
         template<size_t... __Indexes>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _Loops(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D,
                            uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD,
                            uint32_t& T,
@@ -218,7 +214,7 @@ namespace accel::Hash {
         }
 
         template<size_t __Index>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _LoopEx(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t& E,
                             uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD, uint32_t& EE,
                             uint32_t& T,
@@ -237,7 +233,7 @@ namespace accel::Hash {
             BB = T;
 
             // for the case when RIPEMD-320
-            if constexpr (__bits == 320) {
+            if constexpr (__Bits == 320) {
                 if constexpr (__Index == 15) {
                     T = B;
                     B = BB;
@@ -267,7 +263,7 @@ namespace accel::Hash {
         }
 
         template<size_t... __Indexes>
-        __forceinline
+        ACCEL_FORCEINLINE
         static void _LoopExs(uint32_t& A, uint32_t& B, uint32_t& C, uint32_t& D, uint32_t& E,
                              uint32_t& AA, uint32_t& BB, uint32_t& CC, uint32_t& DD, uint32_t& EE,
                              uint32_t& T,
@@ -277,21 +273,22 @@ namespace accel::Hash {
 
 
     public:
-        static constexpr size_t BlockSize = 64;
-        static constexpr size_t DigestSize = __bits / 8;
+        static constexpr size_t BlockSizeValue = 64;
+        static constexpr size_t DigestSizeValue = __Bits / 8;
 
-        _IMPL_RIPEMD_ALG() noexcept :
-            _State{ _RIPEMD_CONSTANT<__bits>::_InitValue } {}
+        RIPEMD_ALG() noexcept :
+            _StateWiper(_State),
+            _State{ Internal::RIPEMD_CONSTANT<__Bits>::_InitValue } {}
 
         void Cycle(const void* pData, size_t Rounds) noexcept {
-            if constexpr (__bits == 128 || __bits == 256) {
+            if constexpr (__Bits == 128 || __Bits == 256) {
                 uint32_t A, B, C, D;
                 uint32_t AA, BB, CC, DD;
                 uint32_t T;
                 auto MessageBlocks = reinterpret_cast<const uint32_t(*)[16]>(pData);
 
                 for (size_t i = 0; i < Rounds; ++i) {
-                    if constexpr (__bits == 128) {
+                    if constexpr (__Bits == 128) {
                         A = AA = _State[0];
                         B = BB = _State[1];
                         C = CC = _State[2];
@@ -309,7 +306,7 @@ namespace accel::Hash {
 
                     _Loops(A, B, C, D, AA, BB, CC, DD, T, MessageBlocks[i], std::make_index_sequence<64>{});
 
-                    if constexpr (__bits == 128) {
+                    if constexpr (__Bits == 128) {
                         T = _State[1] + C + DD;
                         _State[1] = _State[2] + D + AA;
                         _State[2] = _State[3] + A + BB;
@@ -333,7 +330,7 @@ namespace accel::Hash {
                 auto MessageBlocks = reinterpret_cast<const uint32_t(*)[16]>(pData);
 
                 for (size_t i = 0; i < Rounds; ++i) {
-                    if constexpr (__bits == 160) {
+                    if constexpr (__Bits == 160) {
                         A = AA = _State[0];
                         B = BB = _State[1];
                         C = CC = _State[2];
@@ -354,7 +351,7 @@ namespace accel::Hash {
 
                     _LoopExs(A, B, C, D, E, AA, BB, CC, DD, EE, T, MessageBlocks[i], std::make_index_sequence<80>{});
 
-                    if constexpr (__bits == 160) {
+                    if constexpr (__Bits == 160) {
                         T = _State[1] + C + DD;
                         _State[1] = _State[2] + D + EE;
                         _State[2] = _State[3] + E + AA;
@@ -374,26 +371,26 @@ namespace accel::Hash {
                         _State[9] += EE;
                     }
                 }   // for loop
-            }   // if constexpr (__bits == 128 || __bits == 256)
+            }   // if constexpr (__Bits == 128 || __Bits == 256)
         }   // end of Cycle
 
         //
         //  Once Finish(...) is called, the object should be treated as const
         //
         void Finish(const void* pTailData, size_t TailDataSize, uint64_t ProcessedBytes) noexcept {
-            assert(TailDataSize <= 2 * BlockSize - sizeof(uint64_t) - 1);
+            assert(TailDataSize <= 2 * BlockSizeValue - sizeof(uint64_t) - 1);
 
-            uint8_t FormattedTailData[2 * BlockSize] = {};
+            uint8_t FormattedTailData[2 * BlockSizeValue] = {};
             size_t Rounds;
 
             memcpy(FormattedTailData, pTailData, TailDataSize);
             FormattedTailData[TailDataSize] = 0x80;
-            Rounds = TailDataSize >= BlockSize - sizeof(uint64_t) ? 2 : 1;
+            Rounds = TailDataSize >= BlockSizeValue - sizeof(uint64_t) ? 2 : 1;
             {
                 auto pBitSizeArea =
                     reinterpret_cast<uint64_t*>(
-                        FormattedTailData + (Rounds > 1 ? (2 * BlockSize - sizeof(uint64_t)) :
-                                                          (BlockSize - sizeof(uint64_t))
+                        FormattedTailData + (Rounds > 1 ? (2 * BlockSizeValue - sizeof(uint64_t)) :
+                                                          (BlockSizeValue - sizeof(uint64_t))
                                             )
                     );
                 *pBitSizeArea = ProcessedBytes * 8;
@@ -408,14 +405,10 @@ namespace accel::Hash {
             }
         }
 
-        ByteArray<DigestSize> Digest() const noexcept {
-            return _State.template AsArrayOf<uint8_t, DigestSize>();
+        Array<uint8_t, DigestSizeValue> Digest() const noexcept {
+            return _State.template AsArrayOf<uint8_t, DigestSizeValue>();
         }
     };
 
-    using RIPEMD128_ALG = _IMPL_RIPEMD_ALG<128>;
-    using RIPEMD160_ALG = _IMPL_RIPEMD_ALG<160>;
-    using RIPEMD256_ALG = _IMPL_RIPEMD_ALG<256>;
-    using RIPEMD320_ALG = _IMPL_RIPEMD_ALG<320>;
 }
 
