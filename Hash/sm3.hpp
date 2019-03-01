@@ -13,7 +13,7 @@ namespace accel::Hash {
         SecureWiper<Array<uint32_t, 8>> _StateWiper;
         Array<uint32_t, 8> _State;
 
-        // rename _T to _T_Contant, 
+        // rename _T to _T_Constant, 
         // to avoid conflict with _T macro in windows
         template<size_t __j>
         static constexpr uint32_t _T_Constant() {
