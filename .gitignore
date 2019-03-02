@@ -1,3 +1,4 @@
+# visual studio
 x64/*
 Debug/*
 accel-crypto.vcxproj
@@ -6,3 +7,9 @@ accel-crypto.vcxproj.user
 
 _tmain.cpp
 main.cpp
+
+# clion
+.idea/*
+cmake-build-debug/*
+cmake-build-release/*
+CMakeLists.txt
