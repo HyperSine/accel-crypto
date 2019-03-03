@@ -15,11 +15,22 @@ namespace accel {
             _Ref(RefObject) {}
 
         ~SecureWiper() noexcept {
-            volatile char* p = reinterpret_cast<char*>(&_Ref);
+            volatile char* vcp = reinterpret_cast<char*>(&_Ref);
             size_t s = sizeof(_Ref);
-            while (s--) *p++ = 0;
+            while (s--) {
+                *vcp = 0;
+                ++vcp;
+            }
         }
     };
 
+    inline void* SecureWipe(void* p, size_t s) noexcept {
+        volatile char* vcp = reinterpret_cast<char*>(p);
+        while (s--) {
+            *vcp = 0;
+            ++vcp;
+        }
+        return p;
+    }
 }
 
