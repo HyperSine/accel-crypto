@@ -90,15 +90,37 @@ namespace accel {
         //
         // Return C-Style array reference
         //
-        CArrayType& CArray() noexcept {
+        CArrayType& AsCArray() noexcept {
             return _Elements;
         }
 
         //
         // Return constant C-Style array reference
         //
-        const CArrayType& CArray() const noexcept {
+        const CArrayType& AsCArray() const noexcept {
             return _Elements;
+        }
+
+        //
+        // Return C-Style array reference as any type.
+        //
+        template<typename __CArrayType>
+        __CArrayType& AsCArray() noexcept {
+            static_assert(std::is_const<__CArrayType>::value == false);
+            static_assert(std::is_volatile<__CArrayType>::value == false);
+            static_assert(std::is_array<__CArrayType>::value == true);
+            return reinterpret_cast<__CArrayType&>(_Elements);
+        }
+
+        //
+        // Return constant C-Style array reference as any type.
+        //
+        template<typename __CArrayType>
+        const __CArrayType& AsCArray() const noexcept {
+            static_assert(std::is_const<__CArrayType>::value == false);
+            static_assert(std::is_volatile<__CArrayType>::value == false);
+            static_assert(std::is_array<__CArrayType>::value == true);
+            return reinterpret_cast<const __CArrayType&>(_Elements);
         }
 
         //
@@ -106,8 +128,12 @@ namespace accel {
         // You must be aware of what you are doing
         //
         template<typename __NewType, size_t __NewLength>
-        Array<__NewType, __NewLength>& AsArrayOf() {
-            return *reinterpret_cast<Array<__NewType, __NewLength>*>(this);
+        Array<__NewType, __NewLength>& AsArrayOf() noexcept {
+            if constexpr (std::is_same<__Type, __NewType>::value && __Length == __NewLength) {
+                return *this;
+            } else {
+                return *reinterpret_cast<Array<__NewType, __NewLength>*>(this);
+            }
         }
 
         //
@@ -115,8 +141,12 @@ namespace accel {
         // You must be aware of what you are doing
         //
         template<typename __NewType, size_t __NewLength>
-        const Array<__NewType, __NewLength>& AsArrayOf() const {
-            return *reinterpret_cast<const Array<__NewType, __NewLength>*>(this);
+        const Array<__NewType, __NewLength>& AsArrayOf() const noexcept {
+            if constexpr (std::is_same<__Type, __NewType>::value && __Length == __NewLength) {
+                return *this;
+            } else {
+                return *reinterpret_cast<const Array<__NewType, __NewLength>*>(this);
+            }
         }
 
         //
