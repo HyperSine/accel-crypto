@@ -53,6 +53,8 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
   
   HAVAL-256-3, HAVAL-256-4, HAVAL-256-5
   
+* Whirlpool
+  
 ## Supported Asymmetric Algorithm
 
 * TODO
