@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <type_traits>
 #include <limits.h>
-
 #include "Config.hpp"
 
 #if defined(_MSC_VER)
@@ -26,12 +25,10 @@ namespace accel {
         } else if constexpr (sizeof(x) == 8) {
             return _byteswap_uint64(static_cast<uint64_t>(x));
         } else {
-            static_assert(sizeof(__IntegerType) == 2 ||
-                          sizeof(__IntegerType) == 4 ||
-                          sizeof(__IntegerType) == 8, 
+            static_assert(sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8, 
                           "ByteSwap failure! Unsupported integer type.");
+            ACCEL_UNREACHABLE();
         }
-        ACCEL_UNREACHABLE();
     }
 
     //
@@ -51,13 +48,10 @@ namespace accel {
         } else if constexpr (sizeof(x) == 8) {
             return _rotl64(static_cast<uint64_t>(x), shift);
         } else {
-            static_assert(sizeof(__IntegerType) == 1 || 
-                          sizeof(__IntegerType) == 2 ||
-                          sizeof(__IntegerType) == 4 ||
-                          sizeof(__IntegerType) == 8,
+            static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
                           "RotateShiftLeft failure! Unsupported integer type.");
+            ACCEL_UNREACHABLE();
         }
-        ACCEL_UNREACHABLE();
     }
 
     //
@@ -78,13 +72,30 @@ namespace accel {
         } else if constexpr (sizeof(x) == 8) {
             return _rotr64(static_cast<uint64_t>(x), shift);
         } else {
-            static_assert(sizeof(__IntegerType) == 1 ||
-                          sizeof(__IntegerType) == 2 ||
-                          sizeof(__IntegerType) == 4 ||
-                          sizeof(__IntegerType) == 8,
+            static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
                           "RotateShiftRight failure! Unsupported integer type.");
+            ACCEL_UNREACHABLE();
         }
-        ACCEL_UNREACHABLE();
+    }
+
+    template<typename __IntegerType>
+    void RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "RepeatSaveTo failure! Not a integer type.");
+
+        if constexpr (sizeof(__IntegerType) == 1) {
+            __stosb(reinterpret_cast<unsigned char*>(p), v, times);
+        } else if constexpr (sizeof(__IntegerType) == 2) {
+            __stosw(reinterpret_cast<unsigned short*>(p), v, times);
+        } else if constexpr (sizeof(__IntegerType) == 4) {
+            __stosd(reinterpret_cast<unsigned long*>(p), v, times);
+        } else if constexpr (sizeof(__IntegerType) == 8) {
+            __stosq(reinterpret_cast<unsigned __int64*>(p), v, times);
+        } else {
+            static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                          "RepeatSaveTo failure! Unsupported integer type.");
+            ACCEL_UNREACHABLE();
+        }
     }
 }
 
