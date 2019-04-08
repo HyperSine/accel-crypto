@@ -1,163 +1,201 @@
 #pragma once
 #include <stddef.h>
-#include <stdint.h>
-#include <utility>
 #include <type_traits>
+#include "Config.hpp"
+#include "SecureWiper.hpp"
 
 namespace accel {
 
-    template<typename __Type, size_t __Length>
-    class Array {
-        static_assert(std::is_pod<__Type>::value, "Array failure! __Type must be a POD type.");
-    public:
+    template<typename __Type, size_t... __Dimensions>
+    struct ArrayTraitsOf;
+
+    template<typename __Type, size_t __FirstDimension, size_t... __LeftDimensions>
+    struct ArrayTraitsOf<__Type, __FirstDimension, __LeftDimensions...> {
+        //
+        // 1. "std::decay<__Type>::type == __Type" is required
+        // 2. __Type can not be an array type
+        //
+        static_assert(std::is_same<std::decay<__Type>::type, __Type>::value);
+        static_assert(std::is_array<__Type>::value == false);
+
         using ElementType = __Type;
-        using CArrayType = __Type[__Length];
-        static_assert(std::is_same<CArrayType&, __Type(&)[__Length]>::value);
-        static_assert(std::is_same<const CArrayType&, const __Type(&)[__Length]>::value);
-    private:
-        ElementType _Elements[__Length];
-    public:
+        using ReducedCArrayType = typename ArrayTraitsOf<__Type, __LeftDimensions...>::CArrayType;
+        using CArrayType = ReducedCArrayType[__FirstDimension];
+    };
 
-        static constexpr size_t LengthValue = __Length;
-        static constexpr size_t SizeValue = sizeof(_Elements);
+    template<typename __Type, size_t __LastDimension>
+    struct ArrayTraitsOf<__Type, __LastDimension> {
+        //
+        // 1. "std::decay<__Type>::type == __Type" is required
+        // 2. __Type can not be an array type
+        //
+        static_assert(std::is_same<std::decay<__Type>::type, __Type>::value);
+        static_assert(std::is_array<__Type>::value == false);
 
-        //
-        // Default constructor
-        // All elements use default initialization
-        //
-        constexpr Array() = default;
+        using ElementType = __Type;
+        using ReducedCArrayType = ElementType;
+        using CArrayType = ReducedCArrayType[__LastDimension];
+    };
 
+    template<typename __CArrayType>
+    struct ArrayTraitsOf<__CArrayType> {
         //
-        // Variadic constructor
-        // Allow initializing like c-style array
+        // 1. __CArrayType must be an array type
+        // 2. __CArrayType can not be a reference type
+        // 3. __CArrayType can not have "const" qualifier
+        // 4. __CArrayType can not have "volatile" qualifier
         //
-        template<typename... __Ts>
-        constexpr explicit Array(__Ts&&... Args) :
-            _Elements{ std::forward<__Ts>(Args)... } {}
+        static_assert(std::is_array<__CArrayType>::value);
+        static_assert(std::is_reference<__CArrayType>::value == false);
+        static_assert(std::is_volatile<__CArrayType>::value == false);
+        static_assert(std::is_const<__CArrayType>::value == false);
 
-        //
-        // Copy constructor
-        //
-        constexpr Array(const Array<__Type, __Length>&) = default;
+        using ElementType = typename std::remove_all_extents<__CArrayType>::type;
+        using ReducedCArrayType = typename std::remove_extent<__CArrayType>::type;
+        using CArrayType = __CArrayType;
+    };
 
-        //
-        // Move constructor
-        // The move constructor for ElementType should be exception-safe
-        //
-        constexpr Array(Array<__Type, __Length>&&) noexcept = default;
+    //
+    // ArrayTraitsOf must satisfy the following assertions
+    //
+    static_assert(std::is_same<typename ArrayTraitsOf<int, 4, 3, 2>::ElementType, int>::value);
+    static_assert(std::is_same<const typename ArrayTraitsOf<int, 4, 3, 2>::ElementType, const int>::value);
+    static_assert(std::is_same<volatile typename ArrayTraitsOf<int, 4, 3, 2>::ElementType, volatile int>::value);
+    static_assert(std::is_same<const volatile typename ArrayTraitsOf<int, 4, 3, 2>::ElementType, const volatile int>::value);
 
-        //
-        // Copy assignment
-        //
-        Array<__Type, __Length>& 
-        operator=(const Array<__Type, __Length>&) = default;
+    static_assert(std::is_same<typename ArrayTraitsOf<int, 4, 3, 2>::ReducedCArrayType, int[3][2]>::value);
+    static_assert(std::is_same<const typename ArrayTraitsOf<int, 4, 3, 2>::ReducedCArrayType, const int[3][2]>::value);
+    static_assert(std::is_same<volatile typename ArrayTraitsOf<int, 4, 3, 2>::ReducedCArrayType, volatile int[3][2]>::value);
+    static_assert(std::is_same<const volatile typename ArrayTraitsOf<int, 4, 3, 2>::ReducedCArrayType, const volatile int[3][2]>::value);
 
-        //
-        // Move assignment
-        // The move assignment for ElementType should be exception-safe
-        //
-        Array<__Type, __Length>& 
-        operator=(Array<__Type, __Length>&&) noexcept = default;
+    static_assert(std::is_same<typename ArrayTraitsOf<int, 4, 3, 2>::CArrayType, int[4][3][2]>::value);
+    static_assert(std::is_same<const typename ArrayTraitsOf<int, 4, 3, 2>::CArrayType, const int[4][3][2]>::value);
+    static_assert(std::is_same<volatile typename ArrayTraitsOf<int, 4, 3, 2>::CArrayType, volatile int[4][3][2]>::value);
+    static_assert(std::is_same<const volatile typename ArrayTraitsOf<int, 4, 3, 2>::CArrayType, const volatile int[4][3][2]>::value);
 
-        //
-        // Retrieve element by Index
-        //
-        ElementType& operator[](size_t Index) noexcept {
+    static_assert(std::is_same<ArrayTraitsOf<int[4][3][2]>::ElementType, int>::value);
+    static_assert(std::is_same<const ArrayTraitsOf<int[4][3][2]>::ElementType, const int>::value);
+    static_assert(std::is_same<volatile ArrayTraitsOf<int[4][3][2]>::ElementType, volatile int>::value);
+    static_assert(std::is_same<const volatile ArrayTraitsOf<int[4][3][2]>::ElementType, const volatile int>::value);
+
+    static_assert(std::is_same<ArrayTraitsOf<int[4][3][2]>::ReducedCArrayType, int[3][2]>::value);
+    static_assert(std::is_same<const ArrayTraitsOf<int[4][3][2]>::ReducedCArrayType, const int[3][2]>::value);
+    static_assert(std::is_same<volatile ArrayTraitsOf<int[4][3][2]>::ReducedCArrayType, volatile int[3][2]>::value);
+    static_assert(std::is_same<const volatile ArrayTraitsOf<int[4][3][2]>::ReducedCArrayType, const volatile int[3][2]>::value);
+
+    static_assert(std::is_same<ArrayTraitsOf<int[4][3][2]>::CArrayType, int[4][3][2]>::value);
+    static_assert(std::is_same<const ArrayTraitsOf<int[4][3][2]>::CArrayType, const int[4][3][2]>::value);
+    static_assert(std::is_same<volatile ArrayTraitsOf<int[4][3][2]>::CArrayType, volatile int[4][3][2]>::value);
+    static_assert(std::is_same<const volatile ArrayTraitsOf<int[4][3][2]>::CArrayType, const volatile int[4][3][2]>::value);
+
+    //
+    // An enhanced version for C-style array
+    //
+    template<typename __Type, size_t... __Dimensions>
+    struct Array {
+        using ArrayTraits = ArrayTraitsOf<__Type, __Dimensions...>;
+        using ElementType = typename ArrayTraits::ElementType;
+        using CArrayType = typename ArrayTraits::CArrayType;
+
+        static_assert(std::is_pod<ElementType>::value, "Array failure! ElementType must be a POD type.");
+
+        CArrayType _Elements;
+
+        static constexpr size_t RankValue = std::rank<CArrayType>::value;
+        static constexpr size_t SizeValue = sizeof(CArrayType);
+        static constexpr size_t LengthValue = SizeValue / sizeof(ElementType);
+        template<size_t __N>
+        static constexpr size_t DimensionLengthValue = std::extent<CArrayType, RankValue - 1 - __N>::value;
+
+        typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) ACCEL_NOEXCEPT {
             return _Elements[Index];
         }
 
-        //
-        // A const version for retrieving element by Index
-        //
-        const ElementType& operator[](size_t Index) const noexcept {
+        const typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) const ACCEL_NOEXCEPT {
             return _Elements[Index];
         }
 
-        //
-        // Return the length of array
-        //
-        constexpr size_t Length() const noexcept {
-            return LengthValue;
+        volatile typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) volatile ACCEL_NOEXCEPT {
+            return _Elements[Index];
         }
 
-        //
-        // Return the size of array
-        //
-        constexpr size_t Size() const noexcept {
+        const volatile typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) const volatile ACCEL_NOEXCEPT {
+            return _Elements[Index];
+        }
+
+        constexpr size_t Rank() const volatile ACCEL_NOEXCEPT {
+            return RankValue;
+        }
+
+        constexpr size_t Size() const volatile ACCEL_NOEXCEPT {
             return SizeValue;
         }
 
-        //
-        // Return C-Style array reference
-        //
-        CArrayType& AsCArray() noexcept {
+        constexpr size_t Length() const volatile ACCEL_NOEXCEPT {
+            return LengthValue;
+        }
+
+        template<size_t __N>
+        constexpr size_t DimensionLength() const volatile ACCEL_NOEXCEPT {
+            return DimensionLengthValue<__N>;
+        }
+
+        typename ArrayTraits::CArrayType& AsCArray() ACCEL_NOEXCEPT {
+            return _Elements;
+        }
+
+        const typename ArrayTraits::CArrayType& AsCArray() const ACCEL_NOEXCEPT {
+            return _Elements;
+        }
+
+        volatile typename ArrayTraits::CArrayType& AsCArray() volatile ACCEL_NOEXCEPT {
+            return _Elements;
+        }
+
+        const volatile typename ArrayTraits::CArrayType& AsCArray() const volatile ACCEL_NOEXCEPT {
             return _Elements;
         }
 
         //
-        // Return constant C-Style array reference
+        // Re-interpret array as another C-style array
         //
-        const CArrayType& AsCArray() const noexcept {
-            return _Elements;
+        template<typename __NewCArrayType>
+        __NewCArrayType& AsCArrayOf() ACCEL_NOEXCEPT {
+            return reinterpret_cast<__NewCArrayType&>(_Elements);
         }
 
         //
-        // Return C-Style array reference as any type.
+        // Re-interpret array with "const" qualifier as another C-style array with "const" qualifier
         //
-        template<typename __CArrayType>
-        __CArrayType& AsCArray() noexcept {
-            static_assert(std::is_const<__CArrayType>::value == false);
-            static_assert(std::is_volatile<__CArrayType>::value == false);
-            static_assert(std::is_array<__CArrayType>::value == true);
-            return reinterpret_cast<__CArrayType&>(_Elements);
+        template<typename __NewCArrayType>
+        __NewCArrayType& AsCArrayOf() const ACCEL_NOEXCEPT {
+            return reinterpret_cast<__NewCArrayType&>(_Elements);
         }
 
         //
-        // Return constant C-Style array reference as any type.
+        // Re-interpret array with "volatile" qualifier as another C-style array with "volatile" qualifier
         //
-        template<typename __CArrayType>
-        const __CArrayType& AsCArray() const noexcept {
-            static_assert(std::is_const<__CArrayType>::value == false);
-            static_assert(std::is_volatile<__CArrayType>::value == false);
-            static_assert(std::is_array<__CArrayType>::value == true);
-            return reinterpret_cast<const __CArrayType&>(_Elements);
+        template<typename __NewCArrayType>
+        __NewCArrayType& AsCArrayOf() volatile ACCEL_NOEXCEPT {
+            return reinterpret_cast<__NewCArrayType&>(_Elements);
         }
 
         //
-        // Cast to other array type
-        // You must be aware of what you are doing
+        // Re-interpret array with "const volatile" qualifier as another C-style array with "const volatile" qualifier
         //
-        template<typename __NewType, size_t __NewLength>
-        Array<__NewType, __NewLength>& AsArrayOf() noexcept {
-            if constexpr (std::is_same<__Type, __NewType>::value && __Length == __NewLength) {
-                return *this;
-            } else {
-                return *reinterpret_cast<Array<__NewType, __NewLength>*>(this);
-            }
+        template<typename __NewCArrayType>
+        __NewCArrayType& AsCArrayOf() const volatile ACCEL_NOEXCEPT {
+            return reinterpret_cast<__NewCArrayType&>(_Elements);
         }
 
         //
-        // A const version for casting to other array type
-        // You must be aware of what you are doing
+        // Clear array with guarantee.
         //
-        template<typename __NewType, size_t __NewLength>
-        const Array<__NewType, __NewLength>& AsArrayOf() const noexcept {
-            if constexpr (std::is_same<__Type, __NewType>::value && __Length == __NewLength) {
-                return *this;
-            } else {
-                return *reinterpret_cast<const Array<__NewType, __NewLength>*>(this);
-            }
-        }
-
-        //
-        // Clear data securely
-        //
-        void SecureZero() noexcept {
-            volatile char* p = reinterpret_cast<char*>(_Elements);
-            size_t s = sizeof(_Elements);
-            while (s--) *p++ = 0;
+        void SecureZero() volatile ACCEL_NOEXCEPT {
+            SecureWipe(const_cast<CArrayType&>(_Elements), sizeof(_Elements));
         }
     };
+
 
 }
 
