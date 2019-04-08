@@ -15,7 +15,7 @@ namespace accel {
         // 1. "std::decay<__Type>::type == __Type" is required
         // 2. __Type can not be an array type
         //
-        static_assert(std::is_same<std::decay<__Type>::type, __Type>::value);
+        static_assert(std::is_same<typename std::decay<__Type>::type, __Type>::value);
         static_assert(std::is_array<__Type>::value == false);
 
         using ElementType = __Type;
@@ -29,7 +29,7 @@ namespace accel {
         // 1. "std::decay<__Type>::type == __Type" is required
         // 2. __Type can not be an array type
         //
-        static_assert(std::is_same<std::decay<__Type>::type, __Type>::value);
+        static_assert(std::is_same<typename std::decay<__Type>::type, __Type>::value);
         static_assert(std::is_array<__Type>::value == false);
 
         using ElementType = __Type;
