@@ -3,7 +3,7 @@
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
 #include "Internal/blowfish_constant.hpp"
-#include <memory.h>
+#include <utility>
 
 namespace accel::Crypto {
 
