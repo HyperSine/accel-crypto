@@ -1,9 +1,7 @@
 #pragma once
 #include "../Config.hpp"
-#include "../SecureWiper.hpp"
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
-#include <memory.h>
 
 namespace accel::Crypto {
 
@@ -33,27 +31,22 @@ namespace accel::Crypto {
             0xC5, 0xF3, 0xDB, 0x47, 0xE5, 0xA5, 0x9C, 0x77, 0x0A, 0xA6, 0x20, 0x68, 0xFE, 0x7F, 0xC1, 0xAD
         };
 
-        union BlockType {
-            uint8_t bytes[8];
-            uint16_t words[4];
-        };
+        using BlockType = Array<uint16_t, 4>;
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureWiper<Array<uint16_t, 64>> _KeyWiper;
         Array<uint16_t, 64> _Key;
 
         ACCEL_FORCEINLINE
-        void _KeyExpansion(const void* PtrToUserKey,
-                           size_t EffectiveBits,
-                           size_t UserKeySize) noexcept {
-            memset(_Key.CArray(), 0, _Key.Size());
-            memcpy(_Key.CArray(), PtrToUserKey, UserKeySize);
+        void _KeyExpansion(const void* pbUserKey, size_t EffectiveBits, size_t cbUserKey) ACCEL_NOEXCEPT {
+            _Key.SecureZero();
+            _Key.LoadFrom(pbUserKey, cbUserKey);
 
             size_t T8 = (EffectiveBits + 7) / 8;
             size_t TM = 255u % (1 << (8 + EffectiveBits - 8 * T8));
-            auto& L = _Key.AsArrayOf<uint8_t, 128>();
-            for (size_t i = UserKeySize; i < 128; ++i)
-                L[i] = _PI_Table[(L[i - 1] + L[i - UserKeySize]) % 256];
+            auto& L = _Key.template AsCArrayOf<uint8_t[128]>();
+
+            for (size_t i = cbUserKey; i < 128; ++i)
+                L[i] = _PI_Table[(L[i - 1] + L[i - cbUserKey]) % 256];
 
             L[128 - T8] = _PI_Table[L[128 - T8] & TM];
 
@@ -62,8 +55,8 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _EncryptProcess(BlockType& RefBlock) const noexcept {
-            auto& R = RefBlock.words;
+        void _EncryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
+            auto& R = RefBlock.AsCArray();
             unsigned int j = 0;
 
             for (int i = 0; i < 5; ++i) {
@@ -84,10 +77,10 @@ namespace accel::Crypto {
                 R[3] = RotateShiftLeft<uint16_t>(R[3], 5);
             }
 
-            R[0] += _Key[R[3] & 63];
-            R[1] += _Key[R[0] & 63];
-            R[2] += _Key[R[1] & 63];
-            R[3] += _Key[R[2] & 63];
+            R[0] += _Key[R[3] % _Key.Length()];
+            R[1] += _Key[R[0] % _Key.Length()];
+            R[2] += _Key[R[1] % _Key.Length()];
+            R[3] += _Key[R[2] % _Key.Length()];
 
             for (int i = 0; i < 6; ++i) {
                 R[0] += _Key[j] + (R[3] & R[2]) + (~R[3] & R[1]);
@@ -107,10 +100,10 @@ namespace accel::Crypto {
                 R[3] = RotateShiftLeft<uint16_t>(R[3], 5);
             }
 
-            R[0] += _Key[R[3] & 63];
-            R[1] += _Key[R[0] & 63];
-            R[2] += _Key[R[1] & 63];
-            R[3] += _Key[R[2] & 63];
+            R[0] += _Key[R[3] % _Key.Length()];
+            R[1] += _Key[R[0] % _Key.Length()];
+            R[2] += _Key[R[1] % _Key.Length()];
+            R[3] += _Key[R[2] % _Key.Length()];
 
             for (int i = 0; i < 5; ++i) {
                 R[0] += _Key[j] + (R[3] & R[2]) + (~R[3] & R[1]);
@@ -132,8 +125,8 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _DecryptProcess(BlockType& RefBlock) const noexcept {
-            auto& R = RefBlock.words;
+        void _DecryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
+            auto& R = RefBlock.AsCArray();
             uint32_t j = 63;
 
             for (int i = 4; i >= 0; --i) {
@@ -154,10 +147,10 @@ namespace accel::Crypto {
                 --j;
             }
 
-            R[3] -= _Key[R[2] & 63];
-            R[2] -= _Key[R[1] & 63];
-            R[1] -= _Key[R[0] & 63];
-            R[0] -= _Key[R[3] & 63];
+            R[3] -= _Key[R[2] % _Key.Length()];
+            R[2] -= _Key[R[1] % _Key.Length()];
+            R[1] -= _Key[R[0] % _Key.Length()];
+            R[0] -= _Key[R[3] % _Key.Length()];
 
             for (int i = 5; i >= 0; --i) {
                 R[3] = RotateShiftRight<uint16_t>(R[3], 5);
@@ -177,10 +170,10 @@ namespace accel::Crypto {
                 --j;
             }
 
-            R[3] -= _Key[R[2] & 63];
-            R[2] -= _Key[R[1] & 63];
-            R[1] -= _Key[R[0] & 63];
-            R[0] -= _Key[R[3] & 63];
+            R[3] -= _Key[R[2] % _Key.Length()];
+            R[2] -= _Key[R[1] % _Key.Length()];
+            R[1] -= _Key[R[0] % _Key.Length()];
+            R[0] -= _Key[R[3] % _Key.Length()];
 
             for (int i = 4; i >= 0; --i) {
                 R[3] = RotateShiftRight<uint16_t>(R[3], 5);
@@ -204,59 +197,66 @@ namespace accel::Crypto {
     public:
 
         ACCEL_FORCEINLINE
-        static size_t MakeKeySize(size_t EffectiveBits, size_t ByteSize) {
+        static size_t MakeUserKeySize(size_t EffectiveBits, size_t ByteSize) ACCEL_NOEXCEPT {
             static_assert(sizeof(size_t) >= 4);
             return (EffectiveBits << 16) + ByteSize;
         }
 
-        RC2_ALG() noexcept :
-            _KeyWiper(_Key) {}
-
-        constexpr size_t BlockSize() const noexcept {
+        constexpr size_t BlockSize() const ACCEL_NOEXCEPT {
             return BlockSizeValue;
         }
 
-        constexpr size_t MinKeySize() const noexcept {
+        constexpr size_t MinKeySize() const ACCEL_NOEXCEPT {
             return MinKeySizeValue;
         }
 
-        constexpr size_t MaxKeySize() const noexcept {
+        constexpr size_t MaxKeySize() const ACCEL_NOEXCEPT {
             return MaxKeySizeValue;
         }
 
-        [[nodiscard]]
-        bool SetKey(const void* PtrToUserKey, size_t UserKeySize) noexcept {
-            size_t EffectiveBits = UserKeySize >> 16;
+        ACCEL_NODISCARD
+        bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            size_t EffectiveBits = cbUserKey >> 16;
 
-            UserKeySize &= 0xffff;
+            cbUserKey &= 0xffff;
             if (EffectiveBits == 0)
-                EffectiveBits = 8 * UserKeySize;
+                EffectiveBits = 8 * cbUserKey;
 
-            if (MinKeySizeValue <= UserKeySize && UserKeySize <= MaxKeySizeValue) {
-                if (EffectiveBits > 8 * UserKeySize)
+            if (MinKeySizeValue <= cbUserKey && cbUserKey <= MaxKeySizeValue) {
+                if (EffectiveBits > 8 * cbUserKey)
                     return false;
-                _KeyExpansion(PtrToUserKey, EffectiveBits, UserKeySize);
+                _KeyExpansion(pbUserKey, EffectiveBits, cbUserKey);
                 return true;
             } else {
                 return false;
             }
         }
 
-        size_t EncryptBlock(void* PtrToPlaintext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(PtrToPlaintext);
+        size_t EncryptBlock(void* pbPlaintext) const ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.LoadFrom(pbPlaintext);
             _EncryptProcess(Text);
-            *reinterpret_cast<BlockType*>(PtrToPlaintext) = Text;
+            Text.StoreTo(pbPlaintext);
+
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* PtrToCiphertext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(PtrToCiphertext);
+        size_t DecryptBlock(void* pbCiphertext) const ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.LoadFrom(pbCiphertext);
             _DecryptProcess(Text);
-            *reinterpret_cast<BlockType*>(PtrToCiphertext) = Text;
+            Text.StoreTo(pbCiphertext);
+
             return BlockSizeValue;
         }
 
-        void ClearKey() noexcept {
+        void ClearKey() ACCEL_NOEXCEPT {
+            _Key.SecureZero();
+        }
+
+        ~RC2_ALG() ACCEL_NOEXCEPT {
             _Key.SecureZero();
         }
     };
