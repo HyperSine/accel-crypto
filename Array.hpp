@@ -123,6 +123,40 @@ namespace accel {
 //             return _Elements[Index];
 //         }
 
+        Array<__Type, __Dimensions...>& LoadFrom(const CArrayType& RefArray) ACCEL_NOEXCEPT {
+            memcpy(_Elements, RefArray, sizeof(CArrayType));
+            return *this;
+        }
+
+        template<typename __AnyType>
+        Array<__Type, __Dimensions...>& LoadFrom(const __AnyType* lpArray) ACCEL_NOEXCEPT {
+            memcpy(_Elements, lpArray, sizeof(CArrayType));
+            return *this;
+        }
+
+        template<typename __AnyType>
+        Array<__Type, __Dimensions...>& LoadFrom(const __AnyType* lpArray, size_t cbArray) ACCEL_NOEXCEPT {
+            memcpy(_Elements, lpArray, cbArray < sizeof(CArrayType) ? cbArray : sizeof(CArrayType));
+            return *this;
+        }
+
+        CArrayType& StoreTo(CArrayType& RefArray) ACCEL_NOEXCEPT {
+            memcpy(RefArray, _Elements, sizeof(CArrayType));
+            return RefArray;
+        }
+
+        template<typename __AnyType>
+        __AnyType* StoreTo(__AnyType* lpArray) ACCEL_NOEXCEPT {
+            memcpy(lpArray, _Elements, sizeof(CArrayType));
+            return lpArray;
+        }
+
+        template<typename __AnyType>
+        __AnyType* StoreTo(__AnyType* lpArray, size_t cbArray) ACCEL_NOEXCEPT {
+            memcpy(lpArray, _Elements, cbArray < sizeof(CArrayType) ? cbArray : sizeof(CArrayType));
+            return lpArray;
+        }
+
         constexpr size_t Rank() const ACCEL_NOEXCEPT {
             return RankValue;
         }
