@@ -1,7 +1,7 @@
 #pragma once
 #include "../Config.hpp"
-#include "../SecureWiper.hpp"
 #include "../Array.hpp"
+#include <utility>
 
 namespace accel::Crypto {
 
@@ -11,13 +11,19 @@ namespace accel::Crypto {
         static constexpr size_t MaxKeySizeValue = 256;
     private:
 
-        SecureWiper<Array<uint8_t, 256>> _InitSBoxWiper;
-        SecureWiper<Array<uint8_t, 256>> _SBoxWiper;
         Array<uint8_t, 256> _InitSBox;
         mutable Array<uint8_t, 256> _SBox;
+        mutable uint8_t _X;
+        mutable uint8_t _Y;
 
         ACCEL_FORCEINLINE
-        void _KeyExpansion() noexcept {
+        void _SetInitSBox(const uint8_t* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < 256; ++i)
+                _InitSBox[i] = pbUserKey[i % cbUserKey];
+        }
+
+        ACCEL_FORCEINLINE
+        void _SetSBox() ACCEL_NOEXCEPT {
             for (size_t i = 0; i < 256; ++i)
                 _SBox[i] = static_cast<uint8_t>(i);
 
@@ -26,70 +32,75 @@ namespace accel::Crypto {
                 j += _InitSBox[i] + _SBox[i];
                 std::swap(_SBox[i], _SBox[j]);
             }
+
+
         }
 
         ACCEL_FORCEINLINE
-        void _EncDecProcess(uint8_t* PtrToText, size_t TextSize) const noexcept {
-            uint8_t i = 0, j = 0;
-            for (size_t k = 0; k < TextSize; ++k) {
+        void _EncryptDecryptProcess(uint8_t* pbText, size_t cbText) const ACCEL_NOEXCEPT {
+            uint8_t i = _X, j = _Y;
+            for (size_t k = 0; k < cbText; ++k) {
                 i += 1;
                 j += _SBox[i];
-                uint8_t temp = _SBox[i];
-                _SBox[i] = _SBox[j];
-                _SBox[j] = temp;
-                PtrToText[k] ^= _SBox[(_SBox[i] + _SBox[j]) % 256];
+                pbText[k] ^= _SBox[(_SBox[i] + _SBox[j]) % _SBox.Length()];
+                std::swap(_SBox[i], _SBox[j]);
             }
+            _X = i;
+            _Y = j;
         }
 
     public:
 
-        RC4_ALG() noexcept :
-            _InitSBoxWiper(_InitSBox),
-            _SBoxWiper(_SBox) {}
-
-        constexpr size_t MinKeySize() const noexcept {
+        constexpr size_t MinKeySize() const ACCEL_NOEXCEPT {
             return MinKeySizeValue;
         }
 
-        constexpr size_t MaxKeySize() const noexcept {
+        constexpr size_t MaxKeySize() const ACCEL_NOEXCEPT {
             return MaxKeySizeValue;
         }
 
-        [[nodiscard]]
-        bool SetKey(const void* PtrToUserKey, size_t UserKeySize) noexcept {
-            if (MinKeySizeValue <= UserKeySize && UserKeySize <= MaxKeySizeValue) {
-                auto BytesOfUserKey = reinterpret_cast<const uint8_t*>(PtrToUserKey);
-
-                for (size_t i = 0; i < 256; ++i)
-                    _InitSBox[i] = BytesOfUserKey[i % UserKeySize];
-
-                _KeyExpansion();
-
+        ACCEL_NODISCARD
+        bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            if (MinKeySizeValue <= cbUserKey && cbUserKey <= MaxKeySizeValue) {
+                _SetInitSBox(reinterpret_cast<const uint8_t*>(pbUserKey), cbUserKey);
+                _SetSBox();
+                _X = 0;
+                _Y = 0;
                 return true;
             } else {
                 return false;
             }
         }
 
-        size_t EncryptStream(void* PtrToPlaintext, size_t TextSize) const noexcept {
-            _EncDecProcess(reinterpret_cast<uint8_t*>(PtrToPlaintext), TextSize);
-            return TextSize;
+        size_t EncryptStream(void* pbPlaintext, size_t cbPlaintext) const ACCEL_NOEXCEPT {
+            _EncryptDecryptProcess(reinterpret_cast<uint8_t*>(pbPlaintext), cbPlaintext);
+            return cbPlaintext;
         }
 
-        size_t DecryptStream(void* PtrToCiphertext, size_t TextSize) const noexcept {
-            _EncDecProcess(reinterpret_cast<uint8_t*>(PtrToCiphertext), TextSize);
-            return TextSize;
+        size_t DecryptStream(void* pbCiphertext, size_t cbCiphertext) const ACCEL_NOEXCEPT {
+            _EncryptDecryptProcess(reinterpret_cast<uint8_t*>(pbCiphertext), cbCiphertext);
+            return cbCiphertext;
         }
 
-        void Reset() noexcept {
-            _KeyExpansion();
+        void Reset() ACCEL_NOEXCEPT {
+            _SetSBox();
+            _X = 0;
+            _Y = 0;
         }
 
-        void ClearKey() noexcept {
+        void ClearKey() ACCEL_NOEXCEPT {
             _InitSBox.SecureZero();
             _SBox.SecureZero();
+            _X = 0;
+            _Y = 0;
         }
 
+        ~RC4_ALG() ACCEL_NOEXCEPT {
+            _InitSBox.SecureZero();
+            _SBox.SecureZero();
+            _X = 0;
+            _Y = 0;
+        }
     };
 
 }
