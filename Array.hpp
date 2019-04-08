@@ -115,28 +115,28 @@ namespace accel {
             return _Elements[Index];
         }
 
-        volatile typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) volatile ACCEL_NOEXCEPT {
-            return _Elements[Index];
-        }
+//         volatile typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) volatile ACCEL_NOEXCEPT {
+//             return _Elements[Index];
+//         }
+// 
+//         const volatile typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) const volatile ACCEL_NOEXCEPT {
+//             return _Elements[Index];
+//         }
 
-        const volatile typename ArrayTraits::ReducedCArrayType& operator[](size_t Index) const volatile ACCEL_NOEXCEPT {
-            return _Elements[Index];
-        }
-
-        constexpr size_t Rank() const volatile ACCEL_NOEXCEPT {
+        constexpr size_t Rank() const ACCEL_NOEXCEPT {
             return RankValue;
         }
 
-        constexpr size_t Size() const volatile ACCEL_NOEXCEPT {
+        constexpr size_t Size() const ACCEL_NOEXCEPT {
             return SizeValue;
         }
 
-        constexpr size_t Length() const volatile ACCEL_NOEXCEPT {
+        constexpr size_t Length() const ACCEL_NOEXCEPT {
             return LengthValue;
         }
 
         template<size_t __N>
-        constexpr size_t DimensionLength() const volatile ACCEL_NOEXCEPT {
+        constexpr size_t DimensionLength() const ACCEL_NOEXCEPT {
             return DimensionLengthValue<__N>;
         }
 
@@ -148,13 +148,13 @@ namespace accel {
             return _Elements;
         }
 
-        volatile typename ArrayTraits::CArrayType& AsCArray() volatile ACCEL_NOEXCEPT {
-            return _Elements;
-        }
-
-        const volatile typename ArrayTraits::CArrayType& AsCArray() const volatile ACCEL_NOEXCEPT {
-            return _Elements;
-        }
+//         volatile typename ArrayTraits::CArrayType& AsCArray() volatile ACCEL_NOEXCEPT {
+//             return _Elements;
+//         }
+// 
+//         const volatile typename ArrayTraits::CArrayType& AsCArray() const volatile ACCEL_NOEXCEPT {
+//             return _Elements;
+//         }
 
         //
         // Re-interpret array as another C-style array
@@ -172,21 +172,21 @@ namespace accel {
             return reinterpret_cast<__NewCArrayType&>(_Elements);
         }
 
-        //
-        // Re-interpret array with "volatile" qualifier as another C-style array with "volatile" qualifier
-        //
-        template<typename __NewCArrayType>
-        __NewCArrayType& AsCArrayOf() volatile ACCEL_NOEXCEPT {
-            return reinterpret_cast<__NewCArrayType&>(_Elements);
-        }
-
-        //
-        // Re-interpret array with "const volatile" qualifier as another C-style array with "const volatile" qualifier
-        //
-        template<typename __NewCArrayType>
-        __NewCArrayType& AsCArrayOf() const volatile ACCEL_NOEXCEPT {
-            return reinterpret_cast<__NewCArrayType&>(_Elements);
-        }
+//         //
+//         // Re-interpret array with "volatile" qualifier as another C-style array with "volatile" qualifier
+//         //
+//         template<typename __NewCArrayType>
+//         __NewCArrayType& AsCArrayOf() volatile ACCEL_NOEXCEPT {
+//             return reinterpret_cast<__NewCArrayType&>(_Elements);
+//         }
+// 
+//         //
+//         // Re-interpret array with "const volatile" qualifier as another C-style array with "const volatile" qualifier
+//         //
+//         template<typename __NewCArrayType>
+//         __NewCArrayType& AsCArrayOf() const volatile ACCEL_NOEXCEPT {
+//             return reinterpret_cast<__NewCArrayType&>(_Elements);
+//         }
 
         //
         // Clear array with guarantee.
