@@ -1,94 +1,42 @@
 #pragma once
 #include "../Config.hpp"
-#include "../SecureWiper.hpp"
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
-#include <memory.h>
+#include "Internal/rc6_constant.hpp"
 
 namespace accel::Crypto {
 
-    namespace Internal {
-
-        template<size_t __WordBits>
-        class RC6_CONSTANT;
-
-        template<>
-        class RC6_CONSTANT<16> {
-        protected:
-            using WordType = uint16_t;
-            static constexpr WordType _P = 0xB7E1;
-            static constexpr WordType _Q = 0x9E37;
-            static constexpr unsigned _lgw = 4;
-        };
-
-        template<>
-        class RC6_CONSTANT<32> {
-        protected:
-            using WordType = uint32_t;
-            static constexpr WordType _P = 0xB7E15163;
-            static constexpr WordType _Q = 0x9E3779B9;
-            static constexpr unsigned _lgw = 5;
-        };
-
-        template<>
-        class RC6_CONSTANT<64> {
-        protected:
-            using WordType = uint64_t;
-            static constexpr WordType _P = 0xB7E151628AED2A6B;
-            static constexpr WordType _Q = 0x9E3779B97F4A7C15;
-            static constexpr unsigned _lgw = 6;
-        };
-    }
-
     template<size_t __WordBits, size_t __Rounds, size_t __BytesOfKey>
     class RC6_ALG : public Internal::RC6_CONSTANT<__WordBits> {
-        static_assert(__WordBits == 16 ||
-                      __WordBits == 32 ||
-                      __WordBits == 64, "RC6_ALG failure! Invalid __WordBits.");
+        static_assert(__WordBits == 16 || __WordBits == 32 || __WordBits == 64, "RC6_ALG failure! Invalid __WordBits.");
         static_assert(__BytesOfKey < 256, "RC6_ALG failure! Invalid __BytesOfKey.");
+        static_assert(1u << Internal::RC6_CONSTANT<__WordBits>::lgw == __WordBits);
     public:
         static constexpr size_t BlockSizeValue = 4 * __WordBits / 8;
         static constexpr size_t KeySizeValue = __BytesOfKey;
     private:
 
         using WordType = typename Internal::RC6_CONSTANT<__WordBits>::WordType;
+        using BlockType = Array<WordType, 4>;
+
         static_assert(sizeof(WordType) == __WordBits / 8);
-
-        static constexpr WordType _P = Internal::RC6_CONSTANT<__WordBits>::_P;
-        static constexpr WordType _Q = Internal::RC6_CONSTANT<__WordBits>::_Q;
-
-        static constexpr unsigned _lgw = Internal::RC6_CONSTANT<__WordBits>::_lgw;
-        static_assert(1u << _lgw == __WordBits);
-
-        union BlockType {
-            WordType Values[4];
-
-            WordType& operator[](size_t i) noexcept {
-                return Values[i];
-            }
-
-            const WordType& operator[](size_t i) const noexcept {
-                return Values[i];
-            }
-        };
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureWiper<Array<WordType, 2 * (__Rounds + 2)>> _KeyWiper;
         Array<WordType, 2 * (__Rounds + 2)> _Key;
 
         ACCEL_FORCEINLINE
-        void _KeyExpansion(const uint8_t* PtrToUserKey) noexcept {
-            Array<WordType, 256 / sizeof(WordType)> L;
+        void _KeyExpansion(const uint8_t* pbUserKey) ACCEL_NOEXCEPT {
             constexpr size_t t = 2 * (__Rounds + 2);
             constexpr size_t c = __BytesOfKey ? (__BytesOfKey + (sizeof(WordType) - 1)) / sizeof(WordType) : 1;
             constexpr size_t fin = 3 * (t > c ? t : c);
 
-            memset(L.CArray(), 0, L.Size());
-            memcpy(L.CArray(), PtrToUserKey, KeySizeValue);
+            Array<WordType, 256 / sizeof(WordType)> L = {};
 
-            _Key[0] = _P;
+            L.LoadFrom(pbUserKey, KeySizeValue);
+
+            _Key[0] = Internal::RC6_CONSTANT<__WordBits>::P;
             for (size_t i = 1; i < t; ++i)
-                _Key[i] = _Key[i - 1] + _Q;
+                _Key[i] = _Key[i - 1] + Internal::RC6_CONSTANT<__WordBits>::Q;
 
             size_t ii = 0, jj = 0;
             WordType A = 0, B = 0;
@@ -107,7 +55,7 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _EncryptProcess(BlockType& RefBlock) const noexcept {
+        void _EncryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
             auto& A = RefBlock[0];
             auto& B = RefBlock[1];
             auto& C = RefBlock[2];
@@ -117,9 +65,9 @@ namespace accel::Crypto {
             D += _Key[1];
             for (size_t i = 1; i <= __Rounds; ++i) {
                 WordType t =
-                    RotateShiftLeft<WordType>(B * (2 * B + 1), _lgw);
+                    RotateShiftLeft<WordType>(B * (2 * B + 1), Internal::RC6_CONSTANT<__WordBits>::lgw);
                 WordType u =
-                    RotateShiftLeft<WordType>(D * (2 * D + 1), _lgw);
+                    RotateShiftLeft<WordType>(D * (2 * D + 1), Internal::RC6_CONSTANT<__WordBits>::lgw);
                 A = RotateShiftLeft<WordType>(A ^ t, u) + _Key[2 * i];
                 C = RotateShiftLeft<WordType>(C ^ u, t) + _Key[2 * i + 1];
 
@@ -135,7 +83,7 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _DecryptProcess(BlockType& RefBlock) const noexcept {
+        void _DecryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
             auto& A = RefBlock[0];
             auto& B = RefBlock[1];
             auto& C = RefBlock[2];
@@ -151,9 +99,9 @@ namespace accel::Crypto {
                 A = temp;
 
                 WordType u =
-                        RotateShiftLeft<WordType>(D * (2 * D + 1), _lgw);
+                        RotateShiftLeft<WordType>(D * (2 * D + 1), Internal::RC6_CONSTANT<__WordBits>::lgw);
                 WordType t =
-                        RotateShiftLeft<WordType>(B * (2 * B + 1), _lgw);
+                        RotateShiftLeft<WordType>(B * (2 * B + 1), Internal::RC6_CONSTANT<__WordBits>::lgw);
                 C = RotateShiftRight<WordType>(C - _Key[2 * i + 1], t) ^ u;
                 A = RotateShiftRight<WordType>(A - _Key[2 * i], u) ^ t;
             }
@@ -163,42 +111,49 @@ namespace accel::Crypto {
 
     public:
 
-        RC6_ALG() noexcept :
-            _KeyWiper(_Key) {}
-
-        constexpr size_t BlockSize() const noexcept {
+        constexpr size_t BlockSize() const ACCEL_NOEXCEPT {
             return BlockSizeValue;
         }
 
-        constexpr size_t KeySize() const noexcept {
+        constexpr size_t KeySize() const ACCEL_NOEXCEPT {
             return KeySizeValue;
         }
 
-        [[nodiscard]]
-        bool SetKey(const void* PtrToUserKey, size_t UserKeySize) noexcept {
-            if (UserKeySize == KeySizeValue) {
-                _KeyExpansion(reinterpret_cast<const uint8_t*>(PtrToUserKey));
+        ACCEL_NODISCARD
+        bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            if (cbUserKey == KeySizeValue) {
+                _KeyExpansion(reinterpret_cast<const uint8_t*>(pbUserKey));
                 return true;
             } else {
                 return false;
             }
         }
 
-        size_t EncryptBlock(void* PtrToPlaintext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(PtrToPlaintext);
+        size_t EncryptBlock(void* pbPlaintext) const ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.LoadFrom(pbPlaintext);
             _EncryptProcess(Text);
-            *reinterpret_cast<BlockType*>(PtrToPlaintext) = Text;
+            Text.StoreTo(pbPlaintext);
+
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* PtrToCiphertext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(PtrToCiphertext);
+        size_t DecryptBlock(void* pbCiphertext) const ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.LoadFrom(pbCiphertext);
             _DecryptProcess(Text);
-            *reinterpret_cast<BlockType*>(PtrToCiphertext) = Text;
+            Text.StoreTo(pbCiphertext);
+
             return BlockSizeValue;
         }
 
-        void ClearKey() noexcept {
+        void ClearKey() ACCEL_NOEXCEPT {
+            _Key.SecureZero();
+        }
+
+        ~RC6_ALG() ACCEL_NOEXCEPT {
             _Key.SecureZero();
         }
     };
