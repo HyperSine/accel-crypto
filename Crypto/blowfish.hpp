@@ -14,37 +14,30 @@ namespace accel::Crypto {
         static constexpr size_t MinKeySizeValue = 1;
         static constexpr size_t MaxKeySizeValue = 56;
     private:
-        static constexpr auto& OriginalPBox = Internal::BLOWFISH_CONSTANT::OriginalPBox;
-        static constexpr auto& OriginalSBox = Internal::BLOWFISH_CONSTANT::OriginalSBox;
 
-        union BlockType {
-            uint8_t bytes[8];
-            uint32_t dwords[2];
-            uint64_t qword;
-        };
+        using BlockType = Array<uint32_t, 2>;
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
         Array<uint32_t, 18> _SubKey;
         Array<uint32_t, 4, 256> _SubBox;
 
-        template<char __LR>
+        template<char __LR_Tag>
         ACCEL_FORCEINLINE
         uint32_t _F_transform(BlockType& RefBlock) const ACCEL_NOEXCEPT {
             uint32_t result;
 
-            if constexpr (__LR == 'L') {
-                result = _SubBox[0][RefBlock.bytes[3]];
-                result += _SubBox[1][RefBlock.bytes[2]];
-                result ^= _SubBox[2][RefBlock.bytes[1]];
-                result += _SubBox[3][RefBlock.bytes[0]];
-            } else if constexpr (__LR == 'R') {
-                result = _SubBox[0][RefBlock.bytes[4 + 3]];
-                result += _SubBox[1][RefBlock.bytes[4 + 2]];
-                result ^= _SubBox[2][RefBlock.bytes[4 + 1]];
-                result += _SubBox[3][RefBlock.bytes[4 + 0]];
+            if constexpr (__LR_Tag == 'L') {
+                result = _SubBox[0][RefBlock.template AsCArrayOf<uint8_t[8]>()[3]];
+                result += _SubBox[1][RefBlock.template AsCArrayOf<uint8_t[8]>()[2]];
+                result ^= _SubBox[2][RefBlock.template AsCArrayOf<uint8_t[8]>()[1]];
+                result += _SubBox[3][RefBlock.template AsCArrayOf<uint8_t[8]>()[0]];
+            } else if constexpr (__LR_Tag == 'R') {
+                result = _SubBox[0][RefBlock.template AsCArrayOf<uint8_t[8]>()[4 + 3]];
+                result += _SubBox[1][RefBlock.template AsCArrayOf<uint8_t[8]>()[4 + 2]];
+                result ^= _SubBox[2][RefBlock.template AsCArrayOf<uint8_t[8]>()[4 + 1]];
+                result += _SubBox[3][RefBlock.template AsCArrayOf<uint8_t[8]>()[4 + 0]];
             } else {
-                static_assert(__LR == 'L' || __LR == 'R',
-                              "_F_transform failure! Invalid __LR.");
+                static_assert(__LR_Tag == 'L' || __LR_Tag == 'R');
                 ACCEL_UNREACHABLE();
             }
 
@@ -54,9 +47,8 @@ namespace accel::Crypto {
         template<size_t __Index>
         ACCEL_FORCEINLINE
         void _EncryptLoop(BlockType& RefBlock) const ACCEL_NOEXCEPT {
-            RefBlock.dwords[__Index % 2 == 0 ? 0 : 1] ^= _SubKey[__Index];
-            RefBlock.dwords[__Index % 2 == 0 ? 1 : 0] ^=
-                _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
+            RefBlock[__Index % 2 == 0 ? 0 : 1] ^= _SubKey[__Index];
+            RefBlock[__Index % 2 == 0 ? 1 : 0] ^= _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
         }
 
         template<size_t... __Indexes>
@@ -69,30 +61,28 @@ namespace accel::Crypto {
         ACCEL_FORCEINLINE
         void _EncryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
             if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                RefBlock[0] = ByteSwap<uint32_t>(RefBlock[0]);
+                RefBlock[1] = ByteSwap<uint32_t>(RefBlock[1]);
             }
 
             _EncryptLoops(RefBlock, std::make_index_sequence<16>{});
 
-            RefBlock.dwords[0] ^= _SubKey[16];
-            RefBlock.dwords[1] ^= _SubKey[17];
+            RefBlock[0] ^= _SubKey[16];
+            RefBlock[1] ^= _SubKey[17];
 
-            std::swap(RefBlock.dwords[0], RefBlock.dwords[1]);
+            std::swap(RefBlock[0], RefBlock[1]);
 
             if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                RefBlock[0] = ByteSwap<uint32_t>(RefBlock[0]);
+                RefBlock[1] = ByteSwap<uint32_t>(RefBlock[1]);
             }
         }
 
         template<size_t __Index>
         ACCEL_FORCEINLINE
         void _DecryptLoop(BlockType& RefBlock) const ACCEL_NOEXCEPT {
-            RefBlock.dwords[__Index % 2 == 0 ? 1 : 0] ^=
-                _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
-            RefBlock.dwords[__Index % 2 == 0 ? 0 : 1] ^=
-                _SubKey[__Index];
+            RefBlock[__Index % 2 == 0 ? 1 : 0] ^= _F_transform<__Index % 2 == 0 ? 'L' : 'R'>(RefBlock);
+            RefBlock[__Index % 2 == 0 ? 0 : 1] ^= _SubKey[__Index];
         }
 
         template<size_t... __Indexes>
@@ -105,27 +95,27 @@ namespace accel::Crypto {
         ACCEL_FORCEINLINE
         void _DecryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
             if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                RefBlock[0] = ByteSwap<uint32_t>(RefBlock[0]);
+                RefBlock[1] = ByteSwap<uint32_t>(RefBlock[1]);
             }
 
-            std::swap(RefBlock.dwords[0], RefBlock.dwords[1]);
+            std::swap(RefBlock[0], RefBlock[1]);
 
-            RefBlock.dwords[0] ^= _SubKey[16];
-            RefBlock.dwords[1] ^= _SubKey[17];
+            RefBlock[0] ^= _SubKey[16];
+            RefBlock[1] ^= _SubKey[17];
 
             _DecryptLoops(RefBlock, std::index_sequence<15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0>{});
 
             if constexpr (__LEndian == false) {
-                RefBlock.dwords[0] = ByteSwap<uint32_t>(RefBlock.dwords[0]);
-                RefBlock.dwords[1] = ByteSwap<uint32_t>(RefBlock.dwords[1]);
+                RefBlock[0] = ByteSwap<uint32_t>(RefBlock[0]);
+                RefBlock[1] = ByteSwap<uint32_t>(RefBlock[1]);
             }
         }
 
         ACCEL_FORCEINLINE
         void _KeyExpansion(const uint8_t* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
-            _SubKey = OriginalPBox;
-            _SubBox = OriginalSBox;
+            _SubKey.LoadFrom(OriginalPBox);
+            _SubBox.LoadFrom(OriginalSBox);
 
             for (int i = 0; i < _SubKey.Length(); ++i) {
                 uint32_t temp = pbUserKey[(i * 4) % cbUserKey];
@@ -145,12 +135,12 @@ namespace accel::Crypto {
             BlockType temp = {};
             for (int i = 0; i < 9; ++i) {
                 _EncryptProcess<true>(temp);
-                _SubKey.template AsCArrayOf<uint64_t[9]>()[i] = temp.qword;
+                _SubKey.template AsCArrayOf<uint64_t[9]>()[i] = temp.template AsCArrayOf<uint64_t[1]>()[0];
             }
 
             for (int i = 0; i < 512; ++i) {
                 _EncryptProcess<true>(temp);
-                _SubBox.template AsCArrayOf<uint64_t[512]>()[i] = temp.qword;
+                _SubBox.template AsCArrayOf<uint64_t[512]>()[i] = temp.template AsCArrayOf<uint64_t[1]>()[0];
             }
         }
 
@@ -168,28 +158,33 @@ namespace accel::Crypto {
             return MaxKeySizeValue;
         }
 
-        [[nodiscard]]
+        ACCEL_NODISCARD
         bool SetKey(const void* pUserKey, size_t UserKeySize) ACCEL_NOEXCEPT {
             if (UserKeySize < MinKeySizeValue || UserKeySize > MaxKeySizeValue) {
                 return false;
             } else {
-                _KeyExpansion(reinterpret_cast<const uint8_t*>(pUserKey),
-                              UserKeySize);
+                _KeyExpansion(reinterpret_cast<const uint8_t*>(pUserKey), UserKeySize);
                 return true;
             }
         }
 
-        size_t EncryptBlock(void* pPlaintext) const ACCEL_NOEXCEPT {
-            BlockType Text = *reinterpret_cast<BlockType*>(pPlaintext);
+        size_t EncryptBlock(void* pbPlaintext) const ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.LoadFrom(pbPlaintext);
             _EncryptProcess<__LittleEndian>(Text);
-            *reinterpret_cast<BlockType*>(pPlaintext) = Text;
+            Text.StoreTo(pbPlaintext);
+
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* pCiphertext) const ACCEL_NOEXCEPT {
-            BlockType Text = *reinterpret_cast<BlockType*>(pCiphertext);
+        size_t DecryptBlock(void* pbCiphertext) const ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.LoadFrom(pbCiphertext);
             _DecryptProcess<__LittleEndian>(Text);
-            *reinterpret_cast<BlockType*>(pCiphertext) = Text;
+            Text.StoreTo(pbCiphertext);
+
             return BlockSizeValue;
         }
 
