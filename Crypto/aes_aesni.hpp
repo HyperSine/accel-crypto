@@ -200,7 +200,7 @@ namespace accel::Crypto {
             return KeySizeValue;
         }
 
-        [[nodiscard]]
+        ACCEL_NODISCARD
         bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
             if (cbUserKey != KeySizeValue) {
                 return false;
