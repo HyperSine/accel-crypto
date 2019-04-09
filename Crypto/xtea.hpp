@@ -1,9 +1,7 @@
 #pragma once
 #include "../Config.hpp"
-#include "../SecureWiper.hpp"
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
-#include <memory.h>
 
 namespace accel::Crypto {
 
@@ -13,31 +11,27 @@ namespace accel::Crypto {
         static constexpr size_t KeySizeValue = 16;
     private:
 
-        static constexpr uint32_t _Delta = 0x9E3779B9;
+        static constexpr uint32_t Delta = 0x9E3779B9;
 
-        union BlockType {
-            uint8_t bytes[8];
-            uint32_t dwords[2];
-        };
+        using BlockType = Array<uint32_t, 2>;
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        SecureWiper<Array<uint32_t, 4>> _KeyWiper;
         Array<uint32_t, 4> _Key;
         uint32_t _Rounds;
 
         ACCEL_FORCEINLINE
-        void _EncryptProcess(BlockType& RefBlock) const noexcept {
+        void _EncryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
             uint32_t sum = 0;
 
             for (uint32_t i = 0; i < _Rounds; ++i) {
-                RefBlock.dwords[0] +=
-                    (((RefBlock.dwords[1] << 4) ^ (RefBlock.dwords[1] >> 5)) + RefBlock.dwords[1]) ^ 
+                RefBlock[0] +=
+                    (((RefBlock[1] << 4) ^ (RefBlock[1] >> 5)) + RefBlock[1]) ^ 
                     (sum + _Key[sum % _Key.Length()]);
 
-                sum += _Delta;
+                sum += Delta;
 
-                RefBlock.dwords[1] +=
-                    (((RefBlock.dwords[0] << 4) ^ (RefBlock.dwords[0] >> 5)) + RefBlock.dwords[0]) ^
+                RefBlock[1] +=
+                    (((RefBlock[0] << 4) ^ (RefBlock[0] >> 5)) + RefBlock[0]) ^
                     (sum + _Key[(sum >> 11) % _Key.Length()]);
             }
 
@@ -45,18 +39,18 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _DecryptProcess(BlockType& RefBlock) const noexcept {
-            uint32_t sum = _Delta * _Rounds;
+        void _DecryptProcess(BlockType& RefBlock) const ACCEL_NOEXCEPT {
+            uint32_t sum = Delta * _Rounds;
 
             for (uint32_t i = 0; i < _Rounds; ++i) {
-                RefBlock.dwords[1] -=
-                    (((RefBlock.dwords[0] << 4) ^ (RefBlock.dwords[0] >> 5)) + RefBlock.dwords[0]) ^
+                RefBlock[1] -=
+                    (((RefBlock[0] << 4) ^ (RefBlock[0] >> 5)) + RefBlock[0]) ^
                     (sum + _Key[(sum >> 11) % _Key.Length()]);
 
-                sum -= _Delta;
+                sum -= Delta;
 
-                RefBlock.dwords[0] -=
-                    (((RefBlock.dwords[1] << 4) ^ (RefBlock.dwords[1] >> 5)) + RefBlock.dwords[1]) ^
+                RefBlock[0] -=
+                    (((RefBlock[1] << 4) ^ (RefBlock[1] >> 5)) + RefBlock[1]) ^
                     (sum + _Key[sum % _Key.Length()]);
             }
 
@@ -65,32 +59,31 @@ namespace accel::Crypto {
 
     public:
 
-        XTEA_ALG() noexcept :
-            _KeyWiper(_Key),
+        XTEA_ALG() ACCEL_NOEXCEPT :
             _Rounds(32) {}
 
-        constexpr size_t BlockSize() const noexcept {
+        constexpr size_t BlockSize() const ACCEL_NOEXCEPT {
             return BlockSizeValue;
         }
 
-        constexpr size_t KeySize() const noexcept {
+        constexpr size_t KeySize() const ACCEL_NOEXCEPT {
             return KeySizeValue;
         }
 
-        void SetRounds(uint32_t NumberOfRounds) noexcept {
+        void SetRounds(uint32_t NumberOfRounds) ACCEL_NOEXCEPT {
             _Rounds = NumberOfRounds;
         }
 
-        uint32_t GetRounds() const noexcept {
+        uint32_t GetRounds() const ACCEL_NOEXCEPT {
             return _Rounds;
         }
 
-        [[nodiscard]]
-        bool SetKey(const void* pUserKey, size_t UserKeySize) noexcept {
-            if (UserKeySize != KeySizeValue) {
+        ACCEL_NODISCARD
+        bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            if (cbUserKey != KeySizeValue) {
                 return false;
             } else {
-                memcpy(_Key.CArray(), pUserKey, KeySizeValue);
+                _Key.LoadFrom(pbUserKey, KeySizeValue);
                 _Key[0] = ByteSwap<uint32_t>(_Key[0]);
                 _Key[1] = ByteSwap<uint32_t>(_Key[1]);
                 _Key[2] = ByteSwap<uint32_t>(_Key[2]);
@@ -99,37 +92,45 @@ namespace accel::Crypto {
             }
         }
 
-        size_t EncryptBlock(void* pPlaintext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(pPlaintext);
+        size_t EncryptBlock(void* pbPlaintext) const ACCEL_NOEXCEPT {
+            BlockType Text;
 
-            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
-            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+            Text.LoadFrom(pbPlaintext);
+            Text[0] = ByteSwap<uint32_t>(Text[0]);
+            Text[1] = ByteSwap<uint32_t>(Text[1]);
 
             _EncryptProcess(Text);
 
-            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
-            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+            Text[0] = ByteSwap<uint32_t>(Text[0]);
+            Text[1] = ByteSwap<uint32_t>(Text[1]);
+            Text.StoreTo(pbPlaintext);
 
-            *reinterpret_cast<BlockType*>(pPlaintext) = Text;
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* pCiphertext) const noexcept {
-            BlockType Text = *reinterpret_cast<BlockType*>(pCiphertext);
+        size_t DecryptBlock(void* pbCiphertext) const ACCEL_NOEXCEPT {
+            BlockType Text;
 
-            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
-            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+            Text.LoadFrom(pbCiphertext);
+
+            Text[0] = ByteSwap<uint32_t>(Text[0]);
+            Text[1] = ByteSwap<uint32_t>(Text[1]);
 
             _DecryptProcess(Text);
 
-            Text.dwords[0] = ByteSwap<uint32_t>(Text.dwords[0]);
-            Text.dwords[1] = ByteSwap<uint32_t>(Text.dwords[1]);
+            Text[0] = ByteSwap<uint32_t>(Text[0]);
+            Text[1] = ByteSwap<uint32_t>(Text[1]);
 
-            *reinterpret_cast<BlockType*>(pCiphertext) = Text;
+            Text.StoreTo(pbCiphertext);
+
             return BlockSizeValue;
         }
 
-        void ClearKey() noexcept {
+        void ClearKey() ACCEL_NOEXCEPT {
+            _Key.SecureZero();
+        }
+
+        ~XTEA_ALG() ACCEL_NOEXCEPT {
             _Key.SecureZero();
         }
     };
