@@ -1,9 +1,8 @@
 #pragma once
 #include "../Config.hpp"
-#include "../SecureWiper.hpp"
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
-#include <memory.h>
+#include <utility>
 
 namespace accel::Crypto {
 
@@ -12,11 +11,11 @@ namespace accel::Crypto {
         static constexpr size_t BlockSizeValue = 16;
         static constexpr size_t KeySizeValue = 16;
     private:
-        using VectorType = uint32_t[4];
-        using BlockType = uint32_t[4];
+        using VectorType = Array<uint32_t, 4>;
+        using BlockType = Array<uint32_t, 4>;
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-#if defined(__AVX2__)
+#if ACCEL_AVX2_AVALIABLE
         static inline const int SBox[256] = {
 #else
         static inline const uint8_t SBox[256] = {
@@ -51,8 +50,27 @@ namespace accel::Crypto {
         };
 
         ACCEL_FORCEINLINE
-        static uint32_t _Tau(uint32_t x) noexcept {
-#if defined(__AVX2__)
+        static void _ReverseBytesOrder4x4(Array<uint32_t, 4>& x) ACCEL_NOEXCEPT {
+#if ACCEL_AVX2_AVALIABLE || ACCEL_SSE3_AVAILABLE
+            __m128i vec_x;
+
+            vec_x = _mm_loadu_si128(reinterpret_cast<__m128i*>(x.AsCArray()));
+            vec_x = _mm_shuffle_epi8(vec_x, _mm_set_epi8(12, 13, 14, 15,
+                                                         8, 9, 10, 11,
+                                                         4, 5, 6, 7,
+                                                         0, 1, 2, 3));
+            _mm_storeu_si128(reinterpret_cast<__m128i*>(x.AsCArray()), vec_x);
+#else
+            x[0] = ByteSwap<uint32_t>(x[0]);
+            x[1] = ByteSwap<uint32_t>(x[1]);
+            x[2] = ByteSwap<uint32_t>(x[2]);
+            x[3] = ByteSwap<uint32_t>(x[3]);
+#endif
+        }
+
+        ACCEL_FORCEINLINE
+        static uint32_t _Tau(uint32_t x) ACCEL_NOEXCEPT {
+#if ACCEL_AVX2_AVALIABLE
             __m128i vec_x;
 
             vec_x = _mm_set1_epi32(x);
@@ -79,7 +97,7 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        static uint32_t _L(uint32_t x) noexcept {
+        static uint32_t _L(uint32_t x) ACCEL_NOEXCEPT {
             return x ^
                    RotateShiftLeft<uint32_t>(x, 2) ^
                    RotateShiftLeft<uint32_t>(x, 10) ^
@@ -88,29 +106,29 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        static uint32_t _LL(uint32_t x) noexcept {
+        static uint32_t _LL(uint32_t x) ACCEL_NOEXCEPT {
             return x ^
                    RotateShiftLeft<uint32_t>(x, 13) ^
                    RotateShiftLeft<uint32_t>(x, 23);
         }
 
         ACCEL_FORCEINLINE
-        static uint32_t _T_Transform(uint32_t x) noexcept {
+        static uint32_t _T_Transform(uint32_t x) ACCEL_NOEXCEPT {
             return _L(_Tau(x));
         }
 
         ACCEL_FORCEINLINE
-        static uint32_t _F(uint32_t x0, uint32_t x1, uint32_t x2, uint32_t x3, uint32_t rk) noexcept {
+        static uint32_t _F(uint32_t x0, uint32_t x1, uint32_t x2, uint32_t x3, uint32_t rk) ACCEL_NOEXCEPT {
             return x0 ^ _T_Transform(x1 ^ x2 ^ x3 ^ rk);
         }
 
         ACCEL_FORCEINLINE
-        static uint32_t _TT_Transform(uint32_t x) noexcept {
+        static uint32_t _TT_Transform(uint32_t x) ACCEL_NOEXCEPT {
             return _LL(_Tau(x));
         }
 
         ACCEL_FORCEINLINE
-        void _KeyExpansion(const VectorType& MK) noexcept {
+        void _KeyExpansion(const VectorType& MK) ACCEL_NOEXCEPT {
             VectorType K;
             K[0] = MK[0] ^ 0xA3B1BAC6;
             K[1] = MK[1] ^ 0x56AA3350;
@@ -118,11 +136,11 @@ namespace accel::Crypto {
             K[3] = MK[3] ^ 0xB27022DC;
             for (size_t i = 0; i < 32; ++i)
                 _Key[i] = K[(i + 4) % 4] = K[i % 4] ^ _TT_Transform(K[(i + 1) % 4] ^ K[(i + 2) % 4] ^ K[(i + 3) % 4] ^ CK[i]);
-            SecureWipe(K, sizeof(K));
+            K.SecureZero();
         }
 
         ACCEL_FORCEINLINE
-        void _EncryptProcess(VectorType& X) const noexcept {
+        void _EncryptProcess(BlockType& X) const ACCEL_NOEXCEPT {
             for (size_t i = 0; i < 32; ++i)
                 X[(i + 4) % 4] = _F(X[i % 4], X[(i + 1) % 4], X[(i + 2) % 4], X[(i + 3) % 4], _Key[i]);
             std::swap(X[0], X[3]);
@@ -130,87 +148,72 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _DecryptProcess(VectorType& X) const noexcept {
+        void _DecryptProcess(BlockType& X) const ACCEL_NOEXCEPT {
             for (size_t i = 0; i < 32; ++i)
                 X[(i + 4) % 4] = _F(X[i % 4], X[(i + 1) % 4], X[(i + 2) % 4], X[(i + 3) % 4], _Key[31 - i]);
             std::swap(X[0], X[3]);
             std::swap(X[1], X[2]);
         }
 
-        SecureWiper<Array<uint32_t, 32>> _KeyWiper;
         Array<uint32_t, 32> _Key;
 
     public:
 
-        SM4_ALG() noexcept :
-            _KeyWiper(_Key) {}
-
-        constexpr size_t BlockSize() const noexcept {
+        constexpr size_t BlockSize() const ACCEL_NOEXCEPT {
             return BlockSizeValue;
         }
 
-        constexpr size_t KeySize() const noexcept {
+        constexpr size_t KeySize() const ACCEL_NOEXCEPT {
             return KeySizeValue;
         }
 
-        [[nodiscard]]
-        bool SetKey(const void* pbUserKey, size_t cbUserKey) noexcept {
+        ACCEL_NODISCARD
+        bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
             if (cbUserKey != KeySizeValue) {
                 return false;
             } else {
                 VectorType MK;
-                memcpy(MK, pbUserKey, KeySizeValue);
 
-                MK[0] = ByteSwap<uint32_t>(MK[0]);
-                MK[1] = ByteSwap<uint32_t>(MK[1]);
-                MK[2] = ByteSwap<uint32_t>(MK[2]);
-                MK[3] = ByteSwap<uint32_t>(MK[3]);
+                MK.LoadFrom(pbUserKey, KeySizeValue);
+
+                _ReverseBytesOrder4x4(MK);
 
                 _KeyExpansion(MK);
-                SecureWipe(MK, sizeof(MK));
+                
+                MK.SecureZero();
                 return true;
             }
         }
 
-        size_t EncryptBlock(void* pPlaintext) const noexcept {
+        size_t EncryptBlock(void* pbPlaintext) const ACCEL_NOEXCEPT {
             BlockType Text;
-            memcpy(Text, pPlaintext, sizeof(BlockType));
 
-            Text[0] = ByteSwap<uint32_t>(Text[0]);
-            Text[1] = ByteSwap<uint32_t>(Text[1]);
-            Text[2] = ByteSwap<uint32_t>(Text[2]);
-            Text[3] = ByteSwap<uint32_t>(Text[3]);
-
+            Text.LoadFrom(pbPlaintext);
+            _ReverseBytesOrder4x4(Text);
             _EncryptProcess(Text);
+            _ReverseBytesOrder4x4(Text);
+            Text.StoreTo(pbPlaintext);
 
-            Text[0] = ByteSwap<uint32_t>(Text[0]);
-            Text[1] = ByteSwap<uint32_t>(Text[1]);
-            Text[2] = ByteSwap<uint32_t>(Text[2]);
-            Text[3] = ByteSwap<uint32_t>(Text[3]);
-
-            memcpy(pPlaintext, Text, sizeof(BlockType));
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* pCiphertext) const noexcept {
+        size_t DecryptBlock(void* pbCiphertext) const ACCEL_NOEXCEPT {
             BlockType Text;
-            memcpy(Text, pCiphertext, sizeof(BlockType));
 
-            Text[0] = ByteSwap<uint32_t>(Text[0]);
-            Text[1] = ByteSwap<uint32_t>(Text[1]);
-            Text[2] = ByteSwap<uint32_t>(Text[2]);
-            Text[3] = ByteSwap<uint32_t>(Text[3]);
+            Text.LoadFrom(pbCiphertext);
+            _ReverseBytesOrder4x4(Text);
             _DecryptProcess(Text);
-            Text[0] = ByteSwap<uint32_t>(Text[0]);
-            Text[1] = ByteSwap<uint32_t>(Text[1]);
-            Text[2] = ByteSwap<uint32_t>(Text[2]);
-            Text[3] = ByteSwap<uint32_t>(Text[3]);
+            _ReverseBytesOrder4x4(Text);
+            Text.StoreTo(pbCiphertext);
 
-            memcpy(pCiphertext, Text, sizeof(BlockType));
             return BlockSizeValue;
         }
 
-        void ClearKey() noexcept {
+        void ClearKey() ACCEL_NOEXCEPT {
+            _Key.SecureZero();
+        }
+
+        ~SM4_ALG() ACCEL_NOEXCEPT {
             _Key.SecureZero();
         }
     };
