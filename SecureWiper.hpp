@@ -10,7 +10,7 @@ namespace accel {
         // We use RtlSecureZeroMemory implement
         //
         volatile char* vcp = reinterpret_cast<char*>(p);
-#if defined(__X86_64__) || defined(_M_AMD64)
+#if defined(__x86_64__) || defined(_M_AMD64)
         RepeatSaveTo<char>(const_cast<char*>(vcp), 0, s);
 #else
         while (s) {
