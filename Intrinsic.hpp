@@ -110,10 +110,10 @@ namespace accel {
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
     __IntegerType ByteSwap(__IntegerType x) noexcept {
-        static_assert(std::is_integral<__IntegerType>::value, "ByteSwap failure! Not a integer type.");
-        static_assert(sizeof(__IntegerType) == 2 ||
-                      sizeof(__IntegerType) == 4 ||
-                      sizeof(__IntegerType) == 8, "ByteSwap failure! Unsupported integer type.");
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "ByteSwap failure! Not a integer type.");
+        static_assert(sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                      "ByteSwap failure! Unsupported integer type.");
 
         if constexpr (sizeof(__IntegerType) == 2) {
             return __builtin_bswap16(x);
@@ -138,7 +138,8 @@ namespace accel {
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
     __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) noexcept {
-        static_assert(std::is_integral<__IntegerType>::value, "RotateShiftLeft failure! Not a integer type.");
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "RotateShiftLeft failure! Not a integer type.");
         shift %= sizeof(__IntegerType) * CHAR_BIT;
         if (shift == 0)
             return x;
@@ -154,12 +155,45 @@ namespace accel {
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
     __IntegerType RotateShiftRight(__IntegerType x, unsigned shift) noexcept {
-        static_assert(std::is_integral<__IntegerType>::value, "RotateShiftRight failure! Not a integer type.");
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "RotateShiftRight failure! Not a integer type.");
         shift %= sizeof(__IntegerType) * CHAR_BIT;
         if (shift == 0)
             return x;
         else
             return (x >> shift) | (x << (sizeof(__IntegerType) * 8 - shift));
+    }
+
+    template<typename __IntegerType>
+    void RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "RepeatSaveTo failure! Not a integer type.");
+
+        if constexpr (sizeof(__IntegerType) == 1) {
+            asm volatile("rep stosb;"
+                         :
+                         : "D"(p), "a"(v), "c"(times)
+                         :);
+        } else if constexpr (sizeof(__IntegerType) == 2) {
+            asm volatile("rep stosw;"
+                         :
+                         : "D"(p), "a"(v), "c"(times)
+                         :);
+        } else if constexpr (sizeof(__IntegerType) == 4) {
+            asm volatile("rep stosd;"
+                         :
+                         : "D"(p), "a"(v), "c"(times)
+                         :);
+        } else if constexpr (sizeof(__IntegerType) == 8) {
+            asm volatile("rep stosq;"
+                         :
+                         : "D"(p), "a"(v), "c"(times)
+                         :);
+        } else {
+            static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                          "RepeatSaveTo failure! Unsupported integer type.");
+            ACCEL_UNREACHABLE();
+        }
     }
 
     //
