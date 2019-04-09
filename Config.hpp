@@ -6,6 +6,7 @@
     #define ACCEL_NODISCARD [[nodiscard]]
 
     #define ACCEL_SSE2_AVAILABLE (_M_IX86_FP >= 2 || _M_AMD64)
+    #define ACCEL_SSE3_AVAILABLE ACCEL_SSE2_AVAILABLE
     #define ACCEL_AESNI_AVAILABLE ACCEL_SSE2_AVAILABLE
     #define ACCEL_AVX2_AVALIABLE __AVX2__
 #elif defined(__GNUC__)
@@ -14,6 +15,7 @@
     #define ACCEL_NODISCARD [[nodiscard]]
 
     #define ACCEL_SSE2_AVAILABLE __SSE2__
+    #define ACCEL_SSE3_AVAILABLE __SSE3__
     #define ACCEL_AESNI_AVAILABLE __AES__
     #define ACCEL_AVX2_AVALIABLE __AVX2__
 #else
