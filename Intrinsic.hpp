@@ -97,6 +97,35 @@ namespace accel {
             ACCEL_UNREACHABLE();
         }
     }
+
+    template<typename __IntegerType>
+    ACCEL_FORCEINLINE
+    __IntegerType PopulationCount(__IntegerType x) noexcept {
+        //
+        // Make sure __IntegerType is integral
+        //
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "PopulationCounter failure! Not a integer type.");
+        //
+        // Only 1, 2, 4, 8-bytes-long integers are supported.
+        //
+        static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                      "PopulationCounter failure! Unsupported integer type.");
+
+        if constexpr (sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2) {
+            return __popcnt16(x);
+        }
+
+        if constexpr (sizeof(__IntegerType) == 4) {
+            return __popcnt(x);
+        }
+
+        if constexpr (sizeof(__IntegerType) == 8) {
+            return __popcnt64(x);
+        }
+
+        ACCEL_UNREACHABLE();
+    }
 }
 
 #elif defined(__GNUC__)
@@ -210,7 +239,7 @@ namespace accel {
 
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    int PopulationCount(__IntegerType x) {
+    __IntegerType PopulationCount(__IntegerType x) noexcept {
         //
         // Make sure __IntegerType is integral
         //
