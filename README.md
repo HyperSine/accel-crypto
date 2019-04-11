@@ -16,6 +16,12 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
 
 * CAST-128, CAST-256
 
+* DES
+
+* RC2
+
+* RC4
+
 * RC5
 
 * RC6
