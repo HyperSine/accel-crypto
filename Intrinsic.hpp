@@ -165,7 +165,7 @@ namespace accel {
     }
 
     template<typename __IntegerType>
-    void RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
+    void* RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RepeatSaveTo failure! Not a integer type.");
 
@@ -174,26 +174,38 @@ namespace accel {
                          :
                          : "D"(p), "a"(v), "c"(times)
                          :);
-        } else if constexpr (sizeof(__IntegerType) == 2) {
+        }
+
+        if constexpr (sizeof(__IntegerType) == 2) {
             asm volatile("rep stosw;"
                          :
                          : "D"(p), "a"(v), "c"(times)
                          :);
-        } else if constexpr (sizeof(__IntegerType) == 4) {
+        }
+
+        if constexpr (sizeof(__IntegerType) == 4) {
             asm volatile("rep stosd;"
                          :
                          : "D"(p), "a"(v), "c"(times)
                          :);
-        } else if constexpr (sizeof(__IntegerType) == 8) {
+        }
+
+#if defined(_M_X64) || defined(__x86_64__)
+        if constexpr (sizeof(__IntegerType) == 8) {
             asm volatile("rep stosq;"
                          :
                          : "D"(p), "a"(v), "c"(times)
                          :);
-        } else {
-            static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
-                          "RepeatSaveTo failure! Unsupported integer type.");
-            ACCEL_UNREACHABLE();
         }
+
+        static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                      "RepeatSaveTo failure! Unsupported integer type.");
+#else
+        static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4,
+                      "RepeatSaveTo failure! Unsupported integer type.");
+#endif
+
+        return p;
     }
 
     template<typename __IntegerType>
