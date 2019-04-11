@@ -196,6 +196,31 @@ namespace accel {
         }
     }
 
+    template<typename __IntegerType>
+    ACCEL_FORCEINLINE
+    int PopulationCount(__IntegerType x) {
+        //
+        // Make sure __IntegerType is integral
+        //
+        static_assert(std::is_integral<__IntegerType>::value,
+                      "PopulationCounter failure! Not a integer type.");
+        //
+        // Only 1, 2, 4, 8-bytes-long integers are supported.
+        //
+        static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                      "PopulationCounter failure! Unsupported integer type.");
+
+        if constexpr (sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4) {
+            return __builtin_popcount(x);
+        }
+
+        if constexpr (sizeof(__IntegerType) == 8) {
+            return __builtin_popcountll(x);
+        }
+
+        ACCEL_UNREACHABLE();
+    }
+
     //
     //  Begin AddCarry
     //
