@@ -16,7 +16,7 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
 
 * CAST-128, CAST-256
 
-* DES
+* DES, 3DES
 
 * RC2
 

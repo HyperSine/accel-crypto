@@ -2,6 +2,7 @@
 #include "../Config.hpp"
 #include "../Array.hpp"
 #include "Internal/des_constant.hpp"
+#include <memory.h>
 
 namespace accel::Crypto {
 
@@ -347,6 +348,11 @@ namespace accel::Crypto {
 
         ACCEL_NODISCARD
         bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            return SetKeyChecked(pbUserKey, cbUserKey);
+        }
+
+        ACCEL_NODISCARD
+        bool SetKeyChecked(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
             if (cbUserKey != KeySizeValue) {
                 return false;
             } else {
@@ -358,6 +364,16 @@ namespace accel::Crypto {
 
                 _KeyExpansion(pb);
 
+                return true;
+            }
+        }
+
+        ACCEL_NODISCARD
+        bool SetKeyUnchecked(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            if (cbUserKey != KeySizeValue) {
+                return false;
+            } else {
+                _KeyExpansion(reinterpret_cast<const uint8_t*>(pbUserKey));
                 return true;
             }
         }
@@ -391,5 +407,85 @@ namespace accel::Crypto {
         }
     };
 
+    class TRIPLE_DES_ALG {
+    public:
+        static constexpr size_t BlockSizeValue = DES_ALG::BlockSizeValue;
+        static constexpr size_t KeySizeValue = 3 * DES_ALG::KeySizeValue;
+    private:
+        DES_ALG _Cipher1;
+        DES_ALG _Cipher2;
+        DES_ALG _Cipher3;
+    public:
+
+        constexpr size_t BlockSize() const ACCEL_NOEXCEPT {
+            return BlockSizeValue;
+        }
+
+        constexpr size_t KeySize() const ACCEL_NOEXCEPT {
+            return KeySizeValue;
+        }
+
+        ACCEL_NODISCARD
+        bool SetKey(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            return SetKeyChecked(pbUserKey, cbUserKey);
+        }
+
+        ACCEL_NODISCARD
+        bool SetKeyChecked(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            if (cbUserKey != KeySizeValue) {
+                return false;
+            } else {
+                auto pb = reinterpret_cast<const uint8_t*>(pbUserKey);
+
+                for (size_t i = 0; i < KeySizeValue; ++i)
+                    if (PopulationCount<uint8_t>(pb[i]) % 2 == 0)
+                        return false;
+
+                if (memcmp(pb, pb + DES_ALG::KeySizeValue, DES_ALG::KeySizeValue) == 0) {
+                    // k1 and k2 are the same, which degrades to single DES
+                    // This case shall be avoid
+                    return false;
+                }
+
+                return
+                    _Cipher1.SetKeyUnchecked(pb, DES_ALG::KeySizeValue) &&
+                    _Cipher2.SetKeyUnchecked(pb + DES_ALG::KeySizeValue, DES_ALG::KeySizeValue) &&
+                    _Cipher3.SetKeyUnchecked(pb + DES_ALG::KeySizeValue * 2, DES_ALG::KeySizeValue);    // always return true
+            }
+        }
+
+        ACCEL_NODISCARD
+        bool SetKeyUnchecked(const void* pbUserKey, size_t cbUserKey) ACCEL_NOEXCEPT {
+            if (cbUserKey != KeySizeValue) {
+                return false;
+            } else {
+                auto pb = reinterpret_cast<const uint8_t*>(pbUserKey);
+                return
+                    _Cipher1.SetKeyUnchecked(pb, DES_ALG::KeySizeValue) &&
+                    _Cipher2.SetKeyUnchecked(pb + DES_ALG::KeySizeValue, DES_ALG::KeySizeValue) &&
+                    _Cipher3.SetKeyUnchecked(pb + DES_ALG::KeySizeValue * 2, DES_ALG::KeySizeValue);    // always return true
+            }
+        }
+
+        void EncryptBlock(void* pbPlaintext) const ACCEL_NOEXCEPT {
+            _Cipher1.EncryptBlock(pbPlaintext);
+            _Cipher2.DecryptBlock(pbPlaintext);
+            _Cipher3.EncryptBlock(pbPlaintext);
+        }
+
+        void DecryptBlock(void* pbCiphertext) const ACCEL_NOEXCEPT {
+            _Cipher3.DecryptBlock(pbCiphertext);
+            _Cipher2.EncryptBlock(pbCiphertext);
+            _Cipher1.DecryptBlock(pbCiphertext);
+        }
+
+        void ClearKey() ACCEL_NOEXCEPT {
+            _Cipher1.ClearKey();
+            _Cipher2.ClearKey();
+            _Cipher3.ClearKey();
+        }
+
+        ~TRIPLE_DES_ALG() ACCEL_NOEXCEPT = default; // _Cipher1, 2, 3 will be cleared automatically
+    };
 }
 
