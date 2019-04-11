@@ -79,23 +79,35 @@ namespace accel {
     }
 
     template<typename __IntegerType>
-    void RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
+    void* RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RepeatSaveTo failure! Not a integer type.");
 
         if constexpr (sizeof(__IntegerType) == 1) {
             __stosb(reinterpret_cast<unsigned char*>(p), v, times);
-        } else if constexpr (sizeof(__IntegerType) == 2) {
-            __stosw(reinterpret_cast<unsigned short*>(p), v, times);
-        } else if constexpr (sizeof(__IntegerType) == 4) {
-            __stosd(reinterpret_cast<unsigned long*>(p), v, times);
-        } else if constexpr (sizeof(__IntegerType) == 8) {
-            __stosq(reinterpret_cast<unsigned __int64*>(p), v, times);
-        } else {
-            static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
-                          "RepeatSaveTo failure! Unsupported integer type.");
-            ACCEL_UNREACHABLE();
         }
+        
+        if constexpr (sizeof(__IntegerType) == 2) {
+            __stosw(reinterpret_cast<unsigned short*>(p), v, times);
+        }
+        
+        if constexpr (sizeof(__IntegerType) == 4) {
+            __stosd(reinterpret_cast<unsigned long*>(p), v, times);
+        }
+        
+#if defined(_M_X64)
+        if constexpr (sizeof(__IntegerType) == 8) {
+            __stosq(reinterpret_cast<unsigned __int64*>(p), v, times);
+        }
+
+        static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
+                      "RepeatSaveTo failure! Unsupported integer type.");
+#else
+        static_assert(sizeof(__IntegerType) == 1 || sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4,
+                      "RepeatSaveTo failure! Unsupported integer type.");
+#endif
+
+        return p;
     }
 
     template<typename __IntegerType>
