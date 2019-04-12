@@ -117,7 +117,7 @@ namespace accel::Crypto {
             _SubKey.LoadFrom(OriginalPBox);
             _SubBox.LoadFrom(OriginalSBox);
 
-            for (int i = 0; i < _SubKey.Length(); ++i) {
+            for (size_t i = 0; i < _SubKey.Length(); ++i) {
                 uint32_t temp = pbUserKey[(i * 4) % cbUserKey];
 
                 temp <<= 8;
