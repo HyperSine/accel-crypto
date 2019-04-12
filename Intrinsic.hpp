@@ -112,7 +112,7 @@ namespace accel {
 
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    __IntegerType PopulationCount(__IntegerType x) noexcept {
+    size_t PopulationCount(__IntegerType x) noexcept {
         //
         // Make sure __IntegerType is integral
         //
@@ -133,7 +133,11 @@ namespace accel {
         }
 
         if constexpr (sizeof(__IntegerType) == 8) {
+#if defined(_M_X64)
             return __popcnt64(x);
+#else
+            return __popcnt(static_cast<unsigned __int32>(x)) + __popcnt(static_cast<unsigned __int32>(x >> 32));
+#endif
         }
 
         ACCEL_UNREACHABLE();
