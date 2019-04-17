@@ -21,6 +21,7 @@
 #endif
 
 #define ACCEL_NODISCARD [[nodiscard]]
+#define ACCEL_DEPRECATED(msg) [[deprecated(msg)]]
 
 namespace accel {
 
