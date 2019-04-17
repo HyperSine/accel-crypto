@@ -14,7 +14,7 @@ namespace accel {
     //  Begin ByteSwap
     //
     template<typename __IntegerType>
-    __IntegerType ByteSwap(__IntegerType x) noexcept {
+    __IntegerType ByteSwap(__IntegerType x) {
         static_assert(std::is_integral<__IntegerType>::value, 
                       "ByteSwap failure! Not a integer type.");
 
@@ -35,7 +35,7 @@ namespace accel {
     //  Begin RotateShiftLeft
     //
     template<typename __IntegerType>
-    __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) noexcept {
+    __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) {
         static_assert(std::is_integral<__IntegerType>::value, 
                       "RotateShiftLeft failure! Not a integer type.");
 
@@ -59,7 +59,7 @@ namespace accel {
     //
 
     template<typename __IntegerType>
-    __IntegerType RotateShiftRight(__IntegerType x, int shift) noexcept {
+    __IntegerType RotateShiftRight(__IntegerType x, int shift) {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RotateShiftRight failure! Not a integer type.");
 
@@ -79,7 +79,7 @@ namespace accel {
     }
 
     template<typename __IntegerType>
-    void* RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
+    void* RepeatSaveTo(void* p, __IntegerType v, size_t times) {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RepeatSaveTo failure! Not a integer type.");
 
@@ -112,7 +112,7 @@ namespace accel {
 
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    size_t PopulationCount(__IntegerType x) noexcept {
+    size_t PopulationCount(__IntegerType x) {
         //
         // Make sure __IntegerType is integral
         //
@@ -154,7 +154,7 @@ namespace accel {
     //
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    __IntegerType ByteSwap(__IntegerType x) noexcept {
+    __IntegerType ByteSwap(__IntegerType x) {
         static_assert(std::is_integral<__IntegerType>::value,
                       "ByteSwap failure! Not a integer type.");
         static_assert(sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8,
@@ -182,7 +182,7 @@ namespace accel {
     //
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) noexcept {
+    __IntegerType RotateShiftLeft(__IntegerType x, unsigned shift) {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RotateShiftLeft failure! Not a integer type.");
         shift %= sizeof(__IntegerType) * CHAR_BIT;
@@ -199,7 +199,7 @@ namespace accel {
     //
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    __IntegerType RotateShiftRight(__IntegerType x, unsigned shift) noexcept {
+    __IntegerType RotateShiftRight(__IntegerType x, unsigned shift) {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RotateShiftRight failure! Not a integer type.");
         shift %= sizeof(__IntegerType) * CHAR_BIT;
@@ -210,7 +210,7 @@ namespace accel {
     }
 
     template<typename __IntegerType>
-    void* RepeatSaveTo(void* p, __IntegerType v, size_t times) noexcept {
+    void* RepeatSaveTo(void* p, __IntegerType v, size_t times) {
         static_assert(std::is_integral<__IntegerType>::value,
                       "RepeatSaveTo failure! Not a integer type.");
 
@@ -255,7 +255,7 @@ namespace accel {
 
     template<typename __IntegerType>
     ACCEL_FORCEINLINE
-    __IntegerType PopulationCount(__IntegerType x) noexcept {
+    __IntegerType PopulationCount(__IntegerType x) {
         //
         // Make sure __IntegerType is integral
         //
