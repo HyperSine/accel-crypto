@@ -22,6 +22,8 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
 
 * GOST 28147-89
 
+* IDEA
+
 * RC2
 
 * RC4
