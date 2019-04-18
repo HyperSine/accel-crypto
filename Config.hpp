@@ -25,6 +25,25 @@
 
 namespace accel {
 
+    // +----------------------------------------+
+    // |    Definitions for endianness          |
+    // +----------------------------------------+
+#define ACCEL_ENDIANNESS_LITTLE 1
+#define ACCEL_ENDIANNESS_BIG    2
+
+    enum class Endianness {
+        LittleEndian = 1,
+        BigEndian = 2
+    };
+
+#if defined(ACCEL_CONFIG_OPTION_BIG_ENDIAN)
+    constexpr Endianness NativeEndianness = Endianness::BigEndian;
+    #define ACCEL_NATIVE_ENDIANNESS ACCEL_ENDIANNESS_BIG
+#else
+    constexpr Endianness NativeEndianness = Endianness::LittleEndian;
+    #define ACCEL_NATIVE_ENDIANNESS ACCEL_ENDIANNESS_LITTLE
+#endif
+
 #if defined(ACCEL_CONFIG_OPTION_DISABLE_CXX_EXCEPTION)
     constexpr bool ConfigOptionDisableCxxException = true;
     #define ACCEL_NOEXCEPT 
