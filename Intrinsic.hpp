@@ -15,20 +15,44 @@ namespace accel {
     //
     template<typename __IntegerType>
     __IntegerType ByteSwap(__IntegerType x) {
-        static_assert(std::is_integral<__IntegerType>::value, 
-                      "ByteSwap failure! Not a integer type.");
+        constexpr bool RequirementsSatisfied =
+            std::is_integral<__IntegerType>::value && sizeof(__IntegerType) >= 2    ||
+            std::is_same<__IntegerType, __m128i> && accel::CpuFeatureSSSE3Available ||
+            std::is_same<__IntegerType, __m256i> && accel::CpuFeatureAVX2Available;
+
+        static_assert(RequirementsSatisfied, "ByteSwap failure! Unsupported integer type.");
 
         if constexpr (sizeof(x) == 2) {
             return _byteswap_ushort(static_cast<uint16_t>(x));
-        } else if constexpr (sizeof(x) == 4) {
-            return _byteswap_ulong(static_cast<uint32_t>(x));
-        } else if constexpr (sizeof(x) == 8) {
-            return _byteswap_uint64(static_cast<uint64_t>(x));
-        } else {
-            static_assert(sizeof(__IntegerType) == 2 || sizeof(__IntegerType) == 4 || sizeof(__IntegerType) == 8, 
-                          "ByteSwap failure! Unsupported integer type.");
-            ACCEL_UNREACHABLE();
         }
+        
+        if constexpr (sizeof(x) == 4) {
+            return _byteswap_ulong(static_cast<uint32_t>(x));
+        }
+        
+        if constexpr (sizeof(x) == 8) {
+            return _byteswap_uint64(static_cast<uint64_t>(x));  // available in both x86, x86-64 
+        } 
+        
+        if constexpr (std::is_same<__IntegerType, __m128i>::value && CpuFeatureSSSE3Available) {
+#if ACCEL_SSSE3_AVAILABLE
+            return _mm_shuffle_epi8(x, _mm_set_epi8(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15));
+#else
+            ACCEL_UNREACHABLE();
+#endif
+        }
+
+        if constexpr (std::is_same<__IntegerType, __m256i>::value && accel::CpuFeatureAVX2Available) {
+#if ACCEL_AVX2_AVAILABLE
+            __m256i temp = _mm256_shuffle_epi8(x, _mm256_set_epi8(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                                                                  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15));
+            return _mm256_permute2x128_si256(temp, temp, ((0) << 4) | (1));
+#else
+            ACCEL_UNREACHABLE();
+#endif
+        }
+
+        ACCEL_UNREACHABLE();
     }
 
     //
