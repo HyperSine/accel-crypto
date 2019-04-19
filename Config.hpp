@@ -25,6 +25,30 @@
 
 namespace accel {
 
+#if ACCEL_SSE2_AVAILABLE
+    constexpr bool CpuFeatureSSE2Available = true;
+#else
+    constexpr bool CpuFeatureSSE2Available = false;
+#endif
+
+#if ACCEL_SSE3_AVAILABLE
+    constexpr bool CpuFeatureSSE3Available = true;
+#else
+    constexpr bool CpuFeatureSSE3Available = false;
+#endif
+
+#if ACCEL_AESNI_AVAILABLE
+    constexpr bool CpuFeatureAESNIAvailable = true;
+#else
+    constexpr bool CpuFeatureAESNIAvailable = false;
+#endif
+
+#if ACCEL_AVX2_AVALIABLE
+    constexpr bool CpuFeatureAVX2Available = true;
+#else
+    constexpr bool CpuFeatureAVX2Available = false;
+#endif
+
     // +----------------------------------------+
     // |    Definitions for endianness          |
     // +----------------------------------------+
