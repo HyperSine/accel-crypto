@@ -8,7 +8,7 @@
     #define ACCEL_SSE3_AVAILABLE ACCEL_SSE2_AVAILABLE
     #define ACCEL_AESNI_AVAILABLE ACCEL_SSE2_AVAILABLE
     #define ACCEL_AVX_AVAILABLE __AVX__
-    #define ACCEL_AVX2_AVALIABLE __AVX2__
+    #define ACCEL_AVX2_AVAILABLE __AVX2__
 #elif defined(__GNUC__)
     #define ACCEL_FORCEINLINE __attribute__((always_inline)) inline
     #define ACCEL_UNREACHABLE() __builtin_unreachable()
@@ -17,7 +17,7 @@
     #define ACCEL_SSE3_AVAILABLE __SSE3__
     #define ACCEL_AESNI_AVAILABLE __AES__
     #define ACCEL_AVX_AVAILABLE __AVX__
-    #define ACCEL_AVX2_AVALIABLE __AVX2__
+    #define ACCEL_AVX2_AVAILABLE __AVX2__
 #else
 #error "Unknown compiler"
 #endif
@@ -51,7 +51,7 @@ namespace accel {
     constexpr bool CpuFeatureAVXAvailable = false;
 #endif
 
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
     constexpr bool CpuFeatureAVX2Available = true;
 #else
     constexpr bool CpuFeatureAVX2Available = false;

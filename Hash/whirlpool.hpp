@@ -657,7 +657,7 @@ namespace accel::Hash {
             0x33835aad07bf2dcaull,
         };
 
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
         using MatrixType = Array<__m256i, 2>;
 #elif ACCEL_SSE2_AVAILABLE
         using MatrixType = Array<__m128i, 4>;
@@ -668,7 +668,7 @@ namespace accel::Hash {
         ACCEL_FORCEINLINE
         static MatrixType _MatrixXor(const MatrixType& m1, const MatrixType& m2) noexcept {
             MatrixType r;
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
             r[0] = _mm256_xor_si256(m1[0], m2[0]);
             r[1] = _mm256_xor_si256(m1[1], m2[1]);
 #elif ACCEL_SSE2_AVAILABLE
@@ -691,7 +691,7 @@ namespace accel::Hash {
 
         ACCEL_FORCEINLINE
         static void _MatrixXorAssign(MatrixType& m1, const MatrixType& m2) noexcept {
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
             m1[0] = _mm256_xor_si256(m1[0], m2[0]);
             m1[1] = _mm256_xor_si256(m1[1], m2[1]);
 #elif ACCEL_SSE2_AVAILABLE
@@ -714,7 +714,7 @@ namespace accel::Hash {
         ACCEL_FORCEINLINE
         static void _ThetaPiGammaTransform(MatrixType& x) noexcept {
             MatrixType temp;
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
             __m256i t0, t1;
             __m128i vindex0, vindex1;
 

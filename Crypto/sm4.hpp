@@ -15,7 +15,7 @@ namespace accel::Crypto {
         using BlockType = Array<uint32_t, 4>;
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
         static inline const int SBox[256] = {
 #else
         static inline const uint8_t SBox[256] = {
@@ -51,7 +51,7 @@ namespace accel::Crypto {
 
         ACCEL_FORCEINLINE
         static void _ReverseBytesOrder4x4(Array<uint32_t, 4>& x) ACCEL_NOEXCEPT {
-#if ACCEL_AVX2_AVALIABLE || ACCEL_SSE3_AVAILABLE
+#if ACCEL_AVX2_AVAILABLE || ACCEL_SSE3_AVAILABLE
             __m128i vec_x;
 
             vec_x = _mm_loadu_si128(reinterpret_cast<__m128i*>(x.AsCArray()));
@@ -70,7 +70,7 @@ namespace accel::Crypto {
 
         ACCEL_FORCEINLINE
         static uint32_t _Tau(uint32_t x) ACCEL_NOEXCEPT {
-#if ACCEL_AVX2_AVALIABLE
+#if ACCEL_AVX2_AVAILABLE
             __m128i vec_x;
 
             vec_x = _mm_set1_epi32(x);
