@@ -40,6 +40,8 @@ If you have any questions, you can submit issues or contact me by mail: xiao_ai_
  
 * Serpent
 
+* Skipjack
+
 * SM4
   
 * TEA, XTEA, XXTEA
