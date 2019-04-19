@@ -6,6 +6,7 @@
 
     #define ACCEL_SSE2_AVAILABLE (_M_IX86_FP >= 2 || _M_AMD64)
     #define ACCEL_SSE3_AVAILABLE ACCEL_SSE2_AVAILABLE
+    #define ACCEL_SSSE3_AVAILABLE ACCEL_SSE2_AVAILABLE
     #define ACCEL_AESNI_AVAILABLE ACCEL_SSE2_AVAILABLE
     #define ACCEL_AVX_AVAILABLE __AVX__
     #define ACCEL_AVX2_AVAILABLE __AVX2__
@@ -15,6 +16,7 @@
 
     #define ACCEL_SSE2_AVAILABLE __SSE2__
     #define ACCEL_SSE3_AVAILABLE __SSE3__
+    #define ACCEL_SSSE3_AVAILABLE __SSSE3__
     #define ACCEL_AESNI_AVAILABLE __AES__
     #define ACCEL_AVX_AVAILABLE __AVX__
     #define ACCEL_AVX2_AVAILABLE __AVX2__
@@ -37,6 +39,12 @@ namespace accel {
     constexpr bool CpuFeatureSSE3Available = true;
 #else
     constexpr bool CpuFeatureSSE3Available = false;
+#endif
+
+#if ACCEL_SSSE3_AVAILABLE
+    constexpr bool CpuFeatureSSSE3Available = true;
+#else
+    constexpr bool CpuFeatureSSSE3Available = false;
 #endif
 
 #if ACCEL_AESNI_AVAILABLE
