@@ -56,7 +56,7 @@ namespace accel {
                 memcpy(Unit, Address, SizeValue);
             } else {    // when endianness is not same, we need byteswap
                 for (size_t i = 0; i < LengthValue; ++i)
-                    Unit[i] = ByteSwap<__Type>(MemoryReadAs<__Type>(&reinterpret_cast<const __Type*>(Address)[i]));
+                    Unit[i] = ByteSwap<__Type>(MemoryReadAs<__Type>(Address, sizeof(__Type), i));
             }
             return *this;
         }
@@ -67,7 +67,7 @@ namespace accel {
                 memcpy(Address, Unit, SizeValue);
             } else {
                 for (size_t i = 0; i < LengthValue; ++i)
-                    MemoryWriteAs<__Type>(&reinterpret_cast<__Type*>(Address)[i], Unit[i]);
+                    MemoryWriteAs<__Type>(Address, sizeof(__Type), i, ByteSwap<__Type>(Unit[i]));
             }
             return *this;
         }
