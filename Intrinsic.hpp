@@ -17,8 +17,8 @@ namespace accel {
     __IntegerType ByteSwap(__IntegerType x) {
         constexpr bool RequirementsSatisfied =
             std::is_integral<__IntegerType>::value && sizeof(__IntegerType) >= 2    ||
-            std::is_same<__IntegerType, __m128i> && accel::CpuFeatureSSSE3Available ||
-            std::is_same<__IntegerType, __m256i> && accel::CpuFeatureAVX2Available;
+            std::is_same<__IntegerType, __m128i>::value && accel::CpuFeatureSSSE3Available ||
+            std::is_same<__IntegerType, __m256i>::value && accel::CpuFeatureAVX2Available;
 
         static_assert(RequirementsSatisfied, "ByteSwap failure! Unsupported integer type.");
 
