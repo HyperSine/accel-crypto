@@ -32,6 +32,110 @@ namespace accel {
             return Unit[Index];
         }
 
+        Block<__Type, __Length, __AlignSize>& operator&=(const Block<__Type, __Length, __AlignSize>& Other) ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    Unit[i] = _mm_and_si128(Unit[i], Other.Unit[i]);
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    Unit[i] = _mm256_and_si256(Unit[i], Other.Unit[i]);
+                } else {
+                    Unit[i] &= Other.Unit[i];
+                }
+            }
+
+            return *this;
+        }
+
+        Block<__Type, __Length, __AlignSize> operator&(const Block<__Type, __Length, __AlignSize>& Other) const ACCEL_NOEXCEPT {
+            Block<__Type, __Length, __AlignSize> RetVal;
+
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    RetVal.Unit[i] = _mm_and_si128(Unit[i], Other.Unit[i]);
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    RetVal.Unit[i] = _mm256_and_si256(Unit[i], Other.Unit[i]);
+                } else {
+                    RetVal.Unit[i] = Unit[i] & Other.Unit[i];
+                }
+            }
+
+            return RetVal;
+        }
+
+        Block<__Type, __Length, __AlignSize>& operator|=(const Block<__Type, __Length, __AlignSize>& Other) ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    Unit[i] = _mm_or_si128(Unit[i], Other.Unit[i]);
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    Unit[i] = _mm256_or_si256(Unit[i], Other.Unit[i]);
+                } else {
+                    Unit[i] |= Other.Unit[i];
+                }
+            }
+
+            return *this;
+        }
+
+        Block<__Type, __Length, __AlignSize> operator|(const Block<__Type, __Length, __AlignSize>& Other) const ACCEL_NOEXCEPT {
+            Block<__Type, __Length, __AlignSize> RetVal;
+
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    RetVal.Unit[i] = _mm_or_si128(Unit[i], Other.Unit[i]);
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    RetVal.Unit[i] = _mm256_or_si256(Unit[i], Other.Unit[i]);
+                } else {
+                    RetVal.Unit[i] = Unit[i] | Other.Unit[i];
+                }
+            }
+
+            return RetVal;
+        }
+
+        Block<__Type, __Length, __AlignSize>& operator~() ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    Unit[i] = _mm_xor_si128(Unit[i], _mm_set1_epi32(-1));
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    Unit[i] = _mm256_xor_si256(Unit[i], _mm256_set1_epi32(-1));
+                } else {
+                    Unit[i] ^= ~Unit[i];
+                }
+            }
+
+            return *this;
+        }
+
+        Block<__Type, __Length, __AlignSize>& operator^=(const Block<__Type, __Length, __AlignSize>& Other) ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    Unit[i] = _mm_xor_si128(Unit[i], Other.Unit[i]);
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    Unit[i] = _mm256_xor_si256(Unit[i], Other.Unit[i]);
+                } else {
+                    Unit[i] ^= Other.Unit[i];
+                }
+            }
+
+            return *this;
+        }
+
+        Block<__Type, __Length, __AlignSize> operator^(const Block<__Type, __Length, __AlignSize>& Other) const ACCEL_NOEXCEPT {
+            Block<__Type, __Length, __AlignSize> RetVal;
+
+            for (size_t i = 0; i < __Length; ++i) {
+                if constexpr (std::is_same<__m128i, __Type>::value) {
+                    RetVal.Unit[i] = _mm_xor_si128(Unit[i], Other.Unit[i]);
+                } else if constexpr (std::is_same<__m256i, __Type>::value) {
+                    RetVal.Unit[i] = _mm256_xor_si256(Unit[i], Other.Unit[i]);
+                } else {
+                    RetVal.Unit[i] = Unit[i] ^ Other.Unit[i];
+                }
+            }
+
+            return RetVal;
+        }
+
         CArrayType& AsCArray() ACCEL_NOEXCEPT {
             return Unit;
         }
