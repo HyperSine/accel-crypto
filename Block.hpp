@@ -41,9 +41,6 @@ namespace accel {
             return *this;
         }
 
-        Block<__Type, __Length, __AlignSize>& operator=(const Block<__Type, __Length, __AlignSize>&) ACCEL_NOEXCEPT = default;
-        Block<__Type, __Length, __AlignSize>& operator=(Block<__Type, __Length, __AlignSize>&&) ACCEL_NOEXCEPT = default;
-
         template<size_t __OtherAlignSize>
         Block<__Type, __Length, __AlignSize>& operator=(const Block<__Type, __Length, __OtherAlignSize>& Other) ACCEL_NOEXCEPT {
             for (size_t i = 0; i < __Length; ++i) {
