@@ -1,6 +1,7 @@
 #pragma once
 #include "../Config.hpp"
 #include "../Array.hpp"
+#include "../Block.hpp"
 #include "../Intrinsic.hpp"
 
 #if ACCEL_AESNI_AVAILABLE
@@ -23,11 +24,11 @@ namespace accel::Crypto {
             0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36
         };
 
-        using BlockType = __m128i; 
+        using BlockType = Block<__m128i, 1>; 
         static_assert(sizeof(BlockType) == BlockSizeValue);
 
-        Array<__m128i, _Nr + 1> _Key;
-        Array<__m128i, _Nr + 1> _InvKey;
+        Array<BlockType, _Nr + 1> _Key;
+        Array<BlockType, _Nr + 1> _InvKey;
 
         //
         //  Calculate `_InvKey`, which will be used in decryption, based on `_Key`.
@@ -144,11 +145,11 @@ namespace accel::Crypto {
         }
 
         ACCEL_FORCEINLINE
-        void _KeyExpansion(const __m128i* pbUserKey) ACCEL_NOEXCEPT {
+        void _KeyExpansion(const void* pbUserKey) ACCEL_NOEXCEPT {
             if constexpr (__KeyBits == 128) {
                 __m128i assist_key;
                 __m128i buffer;
-                buffer = _mm_loadu_si128(pbUserKey);
+                buffer = MemoryReadAs<__m128i>(pbUserKey);
                 _KeyExpansion128Loops(assist_key, buffer,
                                       std::make_index_sequence<_Nr + 1>{});
             }
@@ -157,8 +158,8 @@ namespace accel::Crypto {
                 __m128i assist_key;
                 __m128i buffer_l;
                 __m128i buffer_h;
-                buffer_l = _mm_loadu_si128(pbUserKey);
-                buffer_h = _mm_loadl_epi64(pbUserKey + 1);
+                buffer_l = MemoryReadAs<__m128i>(pbUserKey);
+                buffer_h = _mm_loadl_epi64(reinterpret_cast<const __m128i*>(pbUserKey) + 1);    // no alignment requirement
                 _KeyExpansion192Loops(assist_key, buffer_l, buffer_h,
                                       std::make_index_sequence<(_Nr / 3) * 4 + 1>{});
             }
@@ -167,8 +168,8 @@ namespace accel::Crypto {
                 __m128i assist_key;
                 __m128i buffer_l;
                 __m128i buffer_h;
-                buffer_l = _mm_loadu_si128(pbUserKey);
-                buffer_h = _mm_loadu_si128(pbUserKey + 1);
+                buffer_l = MemoryReadAs<__m128i>(pbUserKey, sizeof(__m128i), 0);
+                buffer_h = MemoryReadAs<__m128i>(pbUserKey, sizeof(__m128i), 1);
                 _KeyExpansion256Loops(assist_key, buffer_l, buffer_h,
                                       std::make_index_sequence<_Nr + 1>{});
             }
@@ -205,23 +206,29 @@ namespace accel::Crypto {
             if (cbUserKey != KeySizeValue) {
                 return false;
             } else {
-                _KeyExpansion(reinterpret_cast<const __m128i*>(pbUserKey));
+                _KeyExpansion(pbUserKey);
                 _InverseKeyExpansion();
                 return true;
             }
         }
 
-        size_t EncryptBlock(void* PtrToPlaintext) ACCEL_NOEXCEPT {
-            BlockType Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(PtrToPlaintext));
+        size_t EncryptBlock(void* pbPlaintext) ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.template LoadFrom<Endianness::LittleEndian>(pbPlaintext);
             _EncryptProcess(Text);
-            _mm_storeu_si128(reinterpret_cast<BlockType*>(PtrToPlaintext), Text);
+            Text.template StoreTo<Endianness::LittleEndian>(pbPlaintext);
+
             return BlockSizeValue;
         }
 
-        size_t DecryptBlock(void* PtrToCiphertext) ACCEL_NOEXCEPT {
-            BlockType Text = _mm_loadu_si128(reinterpret_cast<BlockType*>(PtrToCiphertext));
+        size_t DecryptBlock(void* pbCiphertext) ACCEL_NOEXCEPT {
+            BlockType Text;
+
+            Text.template LoadFrom<Endianness::LittleEndian>(pbCiphertext);
             _DecryptProcess(Text);
-            _mm_storeu_si128(reinterpret_cast<BlockType*>(PtrToCiphertext), Text);
+            Text.template StoreTo<Endianness::LittleEndian>(pbCiphertext);
+
             return BlockSizeValue;
         }
 
