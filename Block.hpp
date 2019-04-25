@@ -11,6 +11,7 @@ namespace accel {
     struct alignas(__AlignSize) Block {
         using UnitType = __Type;
         using CArrayType = __Type[__Length];
+
         static constexpr size_t SizeValue = sizeof(CArrayType);
         static constexpr size_t LengthValue = __Length;
 
@@ -24,6 +25,41 @@ namespace accel {
             return LengthValue;
         }
 
+        template<typename __Dummy = typename std::enable_if<__Length == 1>::type>
+        operator __Type&() ACCEL_NOEXCEPT {
+            return Unit[0];
+        }
+
+        template<typename __Dummy = typename std::enable_if<__Length == 1>::type>
+        operator const __Type&() const ACCEL_NOEXCEPT {
+            return Unit[0];
+        }
+
+        template<typename __Dummy = typename std::enable_if<__Length == 1>::type>
+        Block<__Type, __Length, __AlignSize>& operator=(const __Type& Other) ACCEL_NOEXCEPT {
+            Unit[0] = Other;
+            return *this;
+        }
+
+        Block<__Type, __Length, __AlignSize>& operator=(const Block<__Type, __Length, __AlignSize>&) ACCEL_NOEXCEPT = default;
+        Block<__Type, __Length, __AlignSize>& operator=(Block<__Type, __Length, __AlignSize>&&) ACCEL_NOEXCEPT = default;
+
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize>& operator=(const Block<__Type, __Length, __OtherAlignSize>& Other) ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < __Length; ++i) {
+                Unit[i] = Other.Unit[i];
+            }
+            return *this;
+        }
+
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize>& operator=(Block<__Type, __Length, __OtherAlignSize>&& Other) ACCEL_NOEXCEPT {
+            for (size_t i = 0; i < __Length; ++i) {
+                Unit[i] = std::move(Other.Unit[i]);
+            }
+            return *this;
+        }
+
         constexpr __Type& operator[](size_t Index) ACCEL_NOEXCEPT {
             return Unit[Index];
         }
@@ -32,7 +68,8 @@ namespace accel {
             return Unit[Index];
         }
 
-        Block<__Type, __Length, __AlignSize>& operator&=(const Block<__Type, __Length, __AlignSize>& Other) ACCEL_NOEXCEPT {
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize>& operator&=(const Block<__Type, __Length, __OtherAlignSize>& Other) ACCEL_NOEXCEPT {
             for (size_t i = 0; i < __Length; ++i) {
                 if constexpr (std::is_same<__m128i, __Type>::value) {
                     Unit[i] = _mm_and_si128(Unit[i], Other.Unit[i]);
@@ -60,7 +97,8 @@ namespace accel {
             return *this;
         }
 
-        Block<__Type, __Length, __AlignSize> operator&(const Block<__Type, __Length, __AlignSize>& Other) const ACCEL_NOEXCEPT {
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize> operator&(const Block<__Type, __Length, __OtherAlignSize>& Other) const ACCEL_NOEXCEPT {
             Block<__Type, __Length, __AlignSize> RetVal;
 
             for (size_t i = 0; i < __Length; ++i) {
@@ -92,7 +130,8 @@ namespace accel {
             return RetVal;
         }
 
-        Block<__Type, __Length, __AlignSize>& operator|=(const Block<__Type, __Length, __AlignSize>& Other) ACCEL_NOEXCEPT {
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize>& operator|=(const Block<__Type, __Length, __OtherAlignSize>& Other) ACCEL_NOEXCEPT {
             for (size_t i = 0; i < __Length; ++i) {
                 if constexpr (std::is_same<__m128i, __Type>::value) {
                     Unit[i] = _mm_or_si128(Unit[i], Other.Unit[i]);
@@ -120,7 +159,8 @@ namespace accel {
             return *this;
         }
 
-        Block<__Type, __Length, __AlignSize> operator|(const Block<__Type, __Length, __AlignSize>& Other) const ACCEL_NOEXCEPT {
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize> operator|(const Block<__Type, __Length, __OtherAlignSize>& Other) const ACCEL_NOEXCEPT {
             Block<__Type, __Length, __AlignSize> RetVal;
 
             for (size_t i = 0; i < __Length; ++i) {
@@ -166,7 +206,8 @@ namespace accel {
             return *this;
         }
 
-        Block<__Type, __Length, __AlignSize>& operator^=(const Block<__Type, __Length, __AlignSize>& Other) ACCEL_NOEXCEPT {
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize>& operator^=(const Block<__Type, __Length, __OtherAlignSize>& Other) ACCEL_NOEXCEPT {
             for (size_t i = 0; i < __Length; ++i) {
                 if constexpr (std::is_same<__m128i, __Type>::value) {
                     Unit[i] = _mm_xor_si128(Unit[i], Other.Unit[i]);
@@ -194,7 +235,8 @@ namespace accel {
             return *this;
         }
 
-        Block<__Type, __Length, __AlignSize> operator^(const Block<__Type, __Length, __AlignSize>& Other) const ACCEL_NOEXCEPT {
+        template<size_t __OtherAlignSize>
+        Block<__Type, __Length, __AlignSize> operator^(const Block<__Type, __Length, __OtherAlignSize>& Other) const ACCEL_NOEXCEPT {
             Block<__Type, __Length, __AlignSize> RetVal;
 
             for (size_t i = 0; i < __Length; ++i) {
