@@ -5,7 +5,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/threefish_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits>
     class THREEFISH_ALG : public Internal::THREEFISH_CONSTANT<__KeyBits> {

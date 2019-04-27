@@ -4,7 +4,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/skipjack_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class SKIPJACK_ALG : public Internal::SKIPJACK_CONSTANT {
     public:

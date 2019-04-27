@@ -3,7 +3,7 @@
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
     
     class TEA_ALG {
     public:

@@ -5,7 +5,7 @@
 #include "Internal/gost_constant.hpp"
 #include <utility>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class GOST2814789_ALG : public Internal::GOST2814789_CONSTANT {
     public:

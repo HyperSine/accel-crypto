@@ -4,7 +4,7 @@
 #include "Internal/des_constant.hpp"
 #include <memory.h>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class DES_ALG : public Internal::DES_CONSTANT {
     public:

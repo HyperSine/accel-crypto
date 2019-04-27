@@ -4,7 +4,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/rc5_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __WordBits, size_t __Rounds, size_t __BytesOfKey>
     class RC5_ALG : public Internal::RC5_CONSTANT<__WordBits> {

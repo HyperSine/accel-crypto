@@ -6,7 +6,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/aria_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits>
     class ARIA_ALG : public Internal::ARIA_CONSTANT {

@@ -5,7 +5,7 @@
 #include <utility>
 #include <memory.h>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits>
     class SERPENT_ALG {

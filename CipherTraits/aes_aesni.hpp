@@ -6,7 +6,7 @@
 
 #if ACCEL_AESNI_AVAILABLE
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits>
     class AES_AESNI_ALG {

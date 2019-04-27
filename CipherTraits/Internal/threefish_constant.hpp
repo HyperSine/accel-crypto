@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace accel::Crypto::Internal {
+namespace accel::CipherTraits::Internal {
 
     template<size_t __KeyBits>
     class THREEFISH_CONSTANT;

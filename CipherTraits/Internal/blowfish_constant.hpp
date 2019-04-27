@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-namespace accel::Crypto::Internal {
+namespace accel::CipherTraits::Internal {
 
     class BLOWFISH_CONSTANT {
     protected:

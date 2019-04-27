@@ -3,7 +3,7 @@
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class RC2_ALG {
     public:

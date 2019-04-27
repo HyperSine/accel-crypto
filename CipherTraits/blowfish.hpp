@@ -5,7 +5,7 @@
 #include "Internal/blowfish_constant.hpp"
 #include <utility>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<bool __LittleEndian = false>
     class BLOWFISH_ALG : public Internal::BLOWFISH_CONSTANT {

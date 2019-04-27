@@ -7,7 +7,7 @@
 #include "Internal/seed_constant.hpp"
 #include <utility>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class SEED_ALG : public Internal::SEED_CONSTANT {
     public:

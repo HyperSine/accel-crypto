@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 
-namespace accel::Crypto::Internal {
+namespace accel::CipherTraits::Internal {
 
     template<size_t __WordBits>
     class RC6_CONSTANT;

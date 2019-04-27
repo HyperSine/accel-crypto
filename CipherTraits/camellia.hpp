@@ -5,7 +5,7 @@
 #include "Internal/camellia_constant.hpp"
 #include <utility>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits>
     class CAMELLIA_ALG : public Internal::CAMELLIA_CONSTANT {

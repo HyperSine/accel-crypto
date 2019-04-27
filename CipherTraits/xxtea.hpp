@@ -3,7 +3,7 @@
 #include "../Array.hpp"
 #include "../Intrinsic.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __N>
     class XXTEA_ALG {

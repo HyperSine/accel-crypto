@@ -4,7 +4,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/cast_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class CAST128_ALG : public Internal::CAST_CONSTANT {
     public:

@@ -4,7 +4,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/twofish_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits>
     class TWOFISH_ALG : public Internal::TWOFISH_CONSTANT {

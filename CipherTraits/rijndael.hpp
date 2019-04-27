@@ -4,7 +4,7 @@
 #include "../Intrinsic.hpp"
 #include "Internal/rijndael_constant.hpp"
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     template<size_t __KeyBits, size_t __BlockBits>
     class RIJNDAEL_ALG : public Internal::RIJNDAEL_CONSTANT {

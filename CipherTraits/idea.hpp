@@ -4,7 +4,7 @@
 #include "../Intrinsic.hpp"
 #include <utility>
 
-namespace accel::Crypto {
+namespace accel::CipherTraits {
 
     class IDEA_ALG {
     public:
