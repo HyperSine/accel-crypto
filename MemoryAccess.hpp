@@ -17,11 +17,7 @@ namespace accel {
                 return _mm_loadu_si128(reinterpret_cast<const __m128i*>(Address));
             }
         } else if constexpr (std::is_same<__Type, __m256i>::value) {
-            if constexpr (accel::CpuFeatureAVXAvailable) {
-                return _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(Address));
-            } else {
-                return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(Address));
-            }
+            return _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(Address));
         } else {
             return *reinterpret_cast<const __Type*>(Address);
         }
@@ -38,11 +34,7 @@ namespace accel {
                 return _mm_loadu_si128(reinterpret_cast<const __m128i*>(reinterpret_cast<const char*>(Address) + Offset));
             }
         } else if constexpr (std::is_same<__Type, __m256i>::value) {
-            if constexpr (accel::CpuFeatureAVXAvailable) {
-                return _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const char*>(Address) + Offset));
-            } else {
-                return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const char*>(Address) + Offset));
-            }
+            return _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const char*>(Address) + Offset));
         } else {
             return *reinterpret_cast<const __Type*>(reinterpret_cast<const char*>(Address) + Offset);
         }
@@ -59,11 +51,7 @@ namespace accel {
                 return _mm_loadu_si128(reinterpret_cast<const __m128i*>(reinterpret_cast<const char*>(Address) + Scale * Index));
             }
         } else if constexpr (std::is_same<__Type, __m256i>::value) {
-            if constexpr (accel::CpuFeatureAVXAvailable) {
-                return _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const char*>(Address) + Scale * Index));
-            } else {
-                return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const char*>(Address) + Scale * Index));
-            }
+            return _mm256_lddqu_si256(reinterpret_cast<const __m256i*>(reinterpret_cast<const char*>(Address) + Scale * Index));
         } else {
             return *reinterpret_cast<const __Type*>(reinterpret_cast<const char*>(Address) + Scale * Index);
         }
