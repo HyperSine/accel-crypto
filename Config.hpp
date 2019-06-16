@@ -78,10 +78,10 @@ namespace accel {
 
 #if defined(ACCEL_CONFIG_OPTION_BIG_ENDIAN)
     constexpr Endianness NativeEndianness = Endianness::BigEndian;
-    #define ACCEL_NATIVE_ENDIANNESS ACCEL_ENDIANNESS_BIG
+    #define ACCEL_ENDIANNESS_NATIVE ACCEL_ENDIANNESS_BIG
 #else
     constexpr Endianness NativeEndianness = Endianness::LittleEndian;
-    #define ACCEL_NATIVE_ENDIANNESS ACCEL_ENDIANNESS_LITTLE
+    #define ACCEL_ENDIANNESS_NATIVE ACCEL_ENDIANNESS_LITTLE
 #endif
 
 #if defined(ACCEL_CONFIG_OPTION_DISABLE_CXX_EXCEPTION)
